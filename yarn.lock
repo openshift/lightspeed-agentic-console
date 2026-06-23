@@ -1647,9 +1647,7 @@
     yup "^0.32.11"
 
 "@patternfly/react-charts@^8.4.1":
-  version "8.4.1"
-  resolved "https://registry.npmjs.org/@patternfly/react-charts/-/react-charts-8.4.1.tgz"
-  integrity sha512-kqP5TFr9F/SDTp+nXfcX8gMuZIQ6Uxl55qqiWYgR2zflo0UZWnyL/d2s1fI6Bfi5IuycNdlvJJ/i8QdOsLr5mw==
+  version "8.5.1"
   dependencies:
     "@patternfly/react-styles" "^6.4.0"
     "@patternfly/react-tokens" "^6.4.0"
