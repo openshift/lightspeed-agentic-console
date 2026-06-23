@@ -4819,9 +4819,7 @@ eslint-plugin-cypress@^6.1.0:
     globals "^17.6.0"
 
 eslint-plugin-prettier@^5.5.5:
-  version "5.5.5"
-  resolved "https://registry.npmjs.org/eslint-plugin-prettier/-/eslint-plugin-prettier-5.5.5.tgz"
-  integrity sha512-hscXkbqUZ2sPithAuLm5MXL+Wph+U7wHngPBv9OMWwlP8iaflyxpjTYZkmdgB4/vPIhemRlBEoLrH7UC1n7aUw==
+  version "5.5.6"
   dependencies:
     prettier-linter-helpers "^1.0.1"
     synckit "^0.11.12"
