@@ -46,7 +46,7 @@
     "style-loader": "4.0.0",
     "ts-loader": "9.6.2",
     "ts-node": "10.9.2",
-    "typescript": "5.9.3",
+    "typescript": "7.0.2",
     "victory": "37.3.6",
     "webpack": "5.108.4",
     "webpack-cli": "7.2.1"
