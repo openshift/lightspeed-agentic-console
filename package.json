@@ -77,8 +77,7 @@
   },
   "overrides": {
     "brace-expansion": "1.1.18",
-    "browserslist": "4.28.8",
-    "fast-uri": "3.1.5"
+    "browserslist": "4.28.8"
   },
   "consolePlugin": {
     "name": "lightspeed-agentic-console-plugin",
