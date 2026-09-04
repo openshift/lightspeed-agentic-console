@@ -43,8 +43,8 @@ PR-built console image, disables the run controllers, seeds fixtures, and runs P
 
 ### Requirements
 
-- **Real cluster.** OCP ≥ 5.0 (the version at which the agentic layer ships — see the
-  parent decision `.ai/spec/decisions/0037-agentic-version-gating.md`). Ephemeral,
+- **Real cluster.** OCP ≥ 5.0 (the version at which the agentic layer ships — see decision
+  `0037-agentic-version-gating.md` in the parent `ols` repo spec). Ephemeral,
   claimed per run and released on teardown.
 - **Per PR.** Runs on every pull request via Konflux integration testing.
 - **Install via operator with image substitution.** The console plugin is deployed by the
@@ -67,9 +67,12 @@ Run in order; the last two always run (even on failure).
 3. **install-and-isolate** — perform the install + isolation sequence (below). This is
    cluster orchestration, not browser work, so it lives in the pipeline task rather than in
    Playwright `global-setup.ts`.
-4. **run-e2e** — check out the PR commit, `npm ci`, run `npx playwright test`. Playwright
-   performs only browser login + assertions; cluster setup is already done, so the run is
-   invoked with `SKIP_OLS_SETUP=1`.
+4. **run-e2e** — check out the PR commit, `npm ci`, run `npx playwright test`. `globalSetup`
+   performs browser login and writes `integration-tests/.auth/state.json`; cluster setup is
+   already done by the `install-and-isolate` task. Do **not** set `SKIP_OLS_SETUP=1` — that
+   flag disables `globalSetup`/`globalTeardown` entirely (skipping browser login, auth-state
+   creation, and CR cleanup). Cluster install is separate from browser setup; the two are
+   already separated by living in different pipeline tasks.
 5. **gather-artifacts** *(always)* — archive `gatherClusterArtifacts` output plus the
    Playwright HTML report, JUnit XML, screenshots, videos, and traces.
 6. **release-cluster** *(always)* — return the ephemeral cluster to the pool.
@@ -228,7 +231,7 @@ Output is written to `gui_test_screenshots/artifacts/cluster/`.
 | Variable | Purpose | Default |
 |---|---|---|
 | `BASE_URL` | Console URL (cluster console route in CI) | `http://localhost:9000` |
-| `SKIP_OLS_SETUP` | Skip cluster setup in global setup (set in CI; the pipeline does setup) | unset |
+| `SKIP_OLS_SETUP` | Skip `globalSetup`/`globalTeardown` entirely (browser login, auth-state, CR cleanup). Do **not** set in CI — the pipeline separates cluster install from browser setup by task boundary, not by this flag. | unset |
 | `KUBECONFIG_PATH` | Path to kubeconfig file | (required) |
 | `LOGIN_USERNAME` | Login username | `kubeadmin` |
 | `LOGIN_PASSWORD` | Login password | (required) |

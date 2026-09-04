@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Applies to:** lightspeed-agentic-console (E2E integration tests)
-**Related:** parent decision `.ai/spec/decisions/0037-agentic-version-gating.md`
+**Related:** decision `0037-agentic-version-gating.md` in the parent `ols` repo spec
 
 ## Context
 
@@ -17,7 +17,7 @@ Three facts constrain the design:
    result/approval CRs. The LLM lives in the agentic operator's sandbox. So "mock LLM
    responses to avoid flakiness" really means "ensure nothing drives the seeded runs."
 
-2. **On OCP ≥ 5.0 the production install is the v2 OLM bundle** (decision 0037), whose CSV
+2. **On OCP ≥ 5.0 the production install is the v2 OLM bundle** (decision `0037-agentic-version-gating.md` in the parent `ols` repo spec), whose CSV
    carries two OLM-managed controller deployments: the classic operator and the agentic run
    controller. OLM owns both — scaling or deleting the child Deployments is reverted within
    seconds.
