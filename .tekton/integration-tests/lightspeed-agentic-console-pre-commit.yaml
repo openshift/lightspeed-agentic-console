@@ -59,7 +59,7 @@ spec:
             env:
               - name: COMMIT_SHA
                 value: $(params.commit)
-            image: mcr.microsoft.com/playwright:v1.62.1-noble
+            image: mcr.microsoft.com/playwright:v1.63.0-noble
             resources:
               limits:
                 memory: 4Gi
