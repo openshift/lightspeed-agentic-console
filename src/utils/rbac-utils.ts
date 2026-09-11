@@ -32,6 +32,13 @@ export const isWriteVerb = (v: string): boolean => v === '*' || WRITE_VERBS.has(
 
 export const hasWriteVerb = (rule: PermissionRule): boolean => rule.verbs.some(isWriteVerb);
 
+const READ_ONLY_VERBS = new Set(['get', 'list', 'watch']);
+
+export const isReadOnlyVerb = (v: string): boolean => READ_ONLY_VERBS.has(v);
+
+// Anything that is not a known read-only verb is considered to be mutating
+export const isMutatingVerb = (v: string): boolean => !isReadOnlyVerb(v);
+
 export const formatResource = (rule: PermissionRule): string => {
   const nonEmptyGroups = rule.apiGroups.filter((g) => g !== '');
   let result = rule.resources.join(', ');

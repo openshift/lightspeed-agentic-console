@@ -21,6 +21,7 @@ import {
   formatResource,
   hasWriteVerb,
   isClusterScoped,
+  isMutatingVerb,
   resolveKind,
   summarizeWritePermissions,
 } from '../../../utils/rbac-utils';
@@ -153,7 +154,15 @@ export const RequiredPermissions: FC<RequiredPermissionsProps> = ({ rbac }) => {
                       <ResourceCell pluralToKind={pluralToKind} rule={rule} />
                     </Td>
                     <Td dataLabel={t('Verbs')}>
-                      <code>{rule.verbs.join(', ')}</code>
+                      <Flex flexWrap={{ default: 'wrap' }} spaceItems={{ default: 'spaceItemsXs' }}>
+                        {rule.verbs.map((verb) => (
+                          <FlexItem key={verb}>
+                            <Label color={isMutatingVerb(verb) ? 'orange' : 'grey'} isCompact>
+                              {verb}
+                            </Label>
+                          </FlexItem>
+                        ))}
+                      </Flex>
                     </Td>
                     <Td dataLabel={t('Purpose')}>
                       {rule.justification}{' '}

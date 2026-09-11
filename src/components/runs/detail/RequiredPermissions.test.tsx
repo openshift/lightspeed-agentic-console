@@ -69,6 +69,14 @@ describe('RequiredPermissions', () => {
     expect(screen.getByText(/Read pods/)).toBeInTheDocument();
   });
 
+  test('renders each verb as its own label colored by mutation risk', () => {
+    render({ namespaceScoped: [writeRule] });
+    const readOnly = screen.getByText('get').closest('.pf-v6-c-label');
+    const mutating = screen.getByText('patch').closest('.pf-v6-c-label');
+    expect(mutating).toHaveClass('pf-m-orange');
+    expect(readOnly).not.toHaveClass('pf-m-orange');
+  });
+
   test('renders resource icon and names when resourceNames are present', () => {
     render({
       namespaceScoped: [{ ...writeRule, resourceNames: ['tls-cert'] }],

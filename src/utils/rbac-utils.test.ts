@@ -7,6 +7,8 @@ import {
   flattenRbacRules,
   formatResource,
   isClusterScoped,
+  isMutatingVerb,
+  isReadOnlyVerb,
   resolveKind,
   summarizeWritePermissions,
 } from './rbac-utils';
@@ -174,6 +176,36 @@ describe('summarizeWritePermissions', () => {
         makeRule({ verbs: ['delete'], resources: ['secrets'] }),
       ]),
     ).toBe('delete secrets');
+  });
+});
+
+describe('isReadOnlyVerb', () => {
+  test.each(['get', 'list', 'watch'])('treats %s as read-only', (verb) => {
+    expect(isReadOnlyVerb(verb)).toBe(true);
+  });
+
+  test.each(['create', 'update', 'patch', 'delete', 'deletecollection', 'exec', '*', 'escalate'])(
+    'does not treat %s as read-only',
+    (verb) => {
+      expect(isReadOnlyVerb(verb)).toBe(false);
+    },
+  );
+});
+
+describe('isMutatingVerb', () => {
+  test.each(['create', 'update', 'patch', 'delete', 'deletecollection', 'exec', '*'])(
+    'treats %s as mutating',
+    (verb) => {
+      expect(isMutatingVerb(verb)).toBe(true);
+    },
+  );
+
+  test.each(['get', 'list', 'watch'])('does not treat %s as mutating', (verb) => {
+    expect(isMutatingVerb(verb)).toBe(false);
+  });
+
+  test('treats unknown or privileged verbs as mutating', () => {
+    expect(isMutatingVerb('impersonate')).toBe(true);
   });
 });
 
