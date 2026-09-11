@@ -6,10 +6,6 @@
   max-width: 600px;
 }
 
-.ols-plugin__config-description {
-  margin-bottom: var(--pf-t--global--spacer--lg);
-}
-
 .ols-plugin__config-approval-row {
   display: flex;
   align-items: center;

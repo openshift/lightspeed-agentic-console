@@ -45,16 +45,13 @@ const ConfigurationPage: React.FC = () => {
           </FlexItem>
         </Flex>
         <p className="ols-plugin__config-page-subtitle">
-          {t('Configure runtime policies for agentic troubleshooting workflows.')}
+          {t(
+            'Manage manual or automatic stage approval modes across the agentic troubleshooting lifecycle.',
+          )}
         </p>
       </PageSection>
       <PageSection>
         <div className="ols-plugin__config-content">
-          <p className="ols-plugin__config-description">
-            {t(
-              'Configure whether each workflow stage requires manual approval or runs automatically.',
-            )}
-          </p>
           <ApprovalPolicy />
         </div>
       </PageSection>

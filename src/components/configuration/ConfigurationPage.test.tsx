@@ -27,7 +27,9 @@ describe('ConfigurationPage', () => {
     renderWithProviders(<ConfigurationPage />);
     expect(screen.getByRole('heading', { name: 'Configuration' })).toBeInTheDocument();
     expect(
-      screen.getByText('Configure runtime policies for agentic troubleshooting workflows.'),
+      screen.getByText(
+        'Manage manual or automatic stage approval modes across the agentic troubleshooting lifecycle.',
+      ),
     ).toBeInTheDocument();
     expect(screen.getByText('Dev preview')).toBeInTheDocument();
   });
