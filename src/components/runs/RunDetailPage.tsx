@@ -51,6 +51,7 @@ import { ConfirmationModal } from '../ConfirmationModal';
 import { MarkdownContent } from '../MarkdownContent';
 import PreviewBadge from '../PreviewBadge';
 import StatusGuard from '../StatusGuard';
+import { RunUidProvider } from './RunUidContext';
 import { AnalysisSummary } from './detail/AnalysisSummary';
 import { EscalationSummary } from './detail/EscalationSummary';
 import { ExecutionSummary } from './detail/ExecutionSummary';
@@ -362,347 +363,355 @@ const RunDetailPage: FC = () => {
   };
 
   return (
-    <AgenticLayout>
-      <DocumentTitle>
-        {t('{{name}} details', { name: run?.metadata?.name || name || t('Run') })}
-      </DocumentTitle>
+    <RunUidProvider value={run?.metadata?.uid}>
+      <AgenticLayout>
+        <DocumentTitle>
+          {t('{{name}} details', { name: run?.metadata?.name || name || t('Run') })}
+        </DocumentTitle>
 
-      <PageGroup>
-        <PageSection hasBodyWrapper={false}>
-          <Breadcrumb>
-            <BreadcrumbItem
-              onClick={(e) => {
-                e.preventDefault();
-                navigate('/lightspeed/runs');
-              }}
-              to="#"
-            >
-              {t('Agentic runs')}
-            </BreadcrumbItem>
-            <BreadcrumbItem isActive>{run?.metadata?.name ?? name}</BreadcrumbItem>
-          </Breadcrumb>
-        </PageSection>
-
-        <Divider />
-
-        <PageSection hasBodyWrapper={false}>
-          <Content>
-            <Flex direction={{ default: 'column' }} gap={{ default: 'gapSm' }}>
-              <Flex
-                alignItems={{ default: 'alignItemsCenter' }}
-                spaceItems={{ default: 'spaceItemsSm' }}
+        <PageGroup>
+          <PageSection hasBodyWrapper={false}>
+            <Breadcrumb>
+              <BreadcrumbItem
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate('/lightspeed/runs');
+                }}
+                to="#"
               >
-                <FlexItem>
-                  <ResourceIcon groupVersionKind={LightspeedAgenticRunGVK} />
-                </FlexItem>
-                <FlexItem>
-                  <Title headingLevel="h1">{run?.metadata?.name || name}</Title>
-                </FlexItem>
-                <FlexItem>
-                  <PreviewBadge />
-                </FlexItem>
-                {view &&
-                  view.targetNamespaces?.map((ns) => (
-                    <FlexItem key={ns}>
-                      <ResourceLink kind="Namespace" name={ns} />
-                    </FlexItem>
-                  ))}
-                {view?.source && (
+                {t('Agentic runs')}
+              </BreadcrumbItem>
+              <BreadcrumbItem isActive>{run?.metadata?.name ?? name}</BreadcrumbItem>
+            </Breadcrumb>
+          </PageSection>
+
+          <Divider />
+
+          <PageSection hasBodyWrapper={false}>
+            <Content>
+              <Flex direction={{ default: 'column' }} gap={{ default: 'gapSm' }}>
+                <Flex
+                  alignItems={{ default: 'alignItemsCenter' }}
+                  spaceItems={{ default: 'spaceItemsSm' }}
+                >
                   <FlexItem>
-                    <Label
-                      isCompact
-                      variant="outline"
-                    >{`${t('Trigger domain')}: ${view.source}`}</Label>
+                    <ResourceIcon groupVersionKind={LightspeedAgenticRunGVK} />
+                  </FlexItem>
+                  <FlexItem>
+                    <Title headingLevel="h1">{run?.metadata?.name || name}</Title>
+                  </FlexItem>
+                  <FlexItem>
+                    <PreviewBadge />
+                  </FlexItem>
+                  {view &&
+                    view.targetNamespaces?.map((ns) => (
+                      <FlexItem key={ns}>
+                        <ResourceLink kind="Namespace" name={ns} />
+                      </FlexItem>
+                    ))}
+                  {view?.source && (
+                    <FlexItem>
+                      <Label
+                        isCompact
+                        variant="outline"
+                      >{`${t('Trigger domain')}: ${view.source}`}</Label>
+                    </FlexItem>
+                  )}
+                </Flex>
+                {view && (
+                  <FlexItem>
+                    <RunPhaseLabel phase={view.phase} />
+                  </FlexItem>
+                )}
+                <FlexItem>
+                  <Content component={ContentVariants.small}>
+                    {t('Created')} <Timestamp simple timestamp={run?.metadata?.creationTimestamp} />
+                  </Content>
+                </FlexItem>
+              </Flex>
+            </Content>
+
+            {view?.failureReason && !(view.phase === 'Failed' && view.options.length === 0) && (
+              <Alert isInline title={view.failureReason} variant="danger" />
+            )}
+
+            {resultsError && (
+              <Alert isInline title={t('Unable to load run results.')} variant="warning" />
+            )}
+          </PageSection>
+
+          <Divider />
+
+          <StatusGuard
+            data={run?.metadata?.name ? run : undefined}
+            label={t('Run')}
+            loaded={runLoaded}
+            loadError={runError}
+          >
+            <PageSection hasBodyWrapper={false}>
+              <Flex direction={{ default: 'column' }} gap={{ default: 'gapSm' }}>
+                <FlexItem>
+                  <Title headingLevel="h3">{t('Agentic run details')}</Title>
+                </FlexItem>
+
+                <FlexItem>
+                  <small>
+                    <Flex spaceItems={{ default: 'spaceItemsXs' }}>
+                      <FlexItem>
+                        <InfoCircleIcon color="var(--pf-t--global--icon--color--status--info--default)" />
+                      </FlexItem>
+                      <FlexItem>
+                        {t(
+                          'The autonomous features of OpenShift Lightspeed use AI technology to generate output.',
+                        )}{' '}
+                        {t('Always review AI-generated content prior to use.')}
+                      </FlexItem>
+                    </Flex>
+                  </small>
+                </FlexItem>
+              </Flex>
+
+              <Flex spaceItems={{ default: 'spaceItemsXs' }}>
+                <FlexItem>
+                  <Title headingLevel="h4">{t('Analysis request')}</Title>
+                </FlexItem>
+                <FlexItem>
+                  <Popover
+                    aria-label="Analysis request info"
+                    bodyContent={
+                      <div>
+                        {t(
+                          'The original prompt or alert event string sent to the AI agent to initiate analysis.',
+                        )}
+                      </div>
+                    }
+                    headerContent={<div>{t('Analysis request')}</div>}
+                  >
+                    <Button
+                      aria-label="Analysis request info"
+                      icon={<OutlinedQuestionCircleIcon />}
+                      variant="plain"
+                    />
+                  </Popover>
+                </FlexItem>
+              </Flex>
+
+              {view && (
+                <AnalysisSummary
+                  analysisRequest={view.request}
+                  analysisSandbox={view.analysisSandbox}
+                  analysisStartedAt={view.analysisStartedAt}
+                  canApprove={canApprove}
+                  canApproveLoading={canApproveLoading}
+                  hasRemediationOptions={view.options.length > 0}
+                  mutationError={mutationError}
+                  mutationInProgress={mutationInProgress}
+                  needsApproval={needsApproval.Analysis}
+                  onApproveAnalysis={() => approveStage('Analysis')}
+                  onClearError={clearMutationError}
+                  phase={view.phase}
+                  rootCause={view.rootCause}
+                />
+              )}
+
+              <Flex
+                direction={{ default: 'column' }}
+                gap={{ default: 'gapXs' }}
+                spaceItems={{ default: 'spaceItemsXs' }}
+              >
+                <Flex spaceItems={{ default: 'spaceItemsSm' }}>
+                  <FlexItem>
+                    <Title headingLevel="h4">{t('Remediation plans')}</Title>
+                  </FlexItem>
+                  <FlexItem>
+                    <Label isCompact>{t('AI-generated')}</Label>
+                  </FlexItem>
+                  {resultsLoaded &&
+                    view &&
+                    view.phase === 'Proposed' &&
+                    view.options.length > 0 && (
+                      <FlexItem>
+                        <Label isCompact variant="outline">
+                          {t('{{count}} remediation option', { count: view.options.length })}
+                        </Label>
+                      </FlexItem>
+                    )}
+                </Flex>
+                {resultsLoaded && view?.analysisCreatedAt && (
+                  <FlexItem>
+                    <Content component={ContentVariants.small}>
+                      {t('Created')} <Timestamp simple timestamp={view.analysisCreatedAt} />
+                    </Content>
                   </FlexItem>
                 )}
               </Flex>
-              {view && (
+
+              {!resultsLoaded ? (
+                <Skeleton screenreaderText={t('Loading remediation options')} />
+              ) : view ? (
+                renderRemediationHub(view)
+              ) : null}
+
+              {resultsLoaded &&
+                view &&
+                !TERMINAL_PHASES.includes(view.phase) &&
+                view.phase !== 'Proposed' &&
+                (needsApproval.Analysis ||
+                  needsApproval.Verification ||
+                  needsApproval.Escalation) && (
+                  <div>
+                    <ApprovalGatedButton
+                      canApprove={canApprove}
+                      canApproveLoading={canApproveLoading}
+                      mutationInProgress={mutationInProgress}
+                      onClick={() => {
+                        if (needsApproval.Analysis) setDenyingStage('Analysis');
+                        else if (needsApproval.Verification) setDenyingStage('Verification');
+                        else if (needsApproval.Escalation) setDenyingStage('Escalation');
+                      }}
+                      variant="secondary"
+                    >
+                      {t('Deny run')}
+                    </ApprovalGatedButton>
+                  </div>
+                )}
+
+              {resultsLoaded && view && view.timeline.length > 0 && (
+                <RunTimeline events={view.timeline} />
+              )}
+
+              {resultsLoaded && view?.phase === 'Proposed' && (
+                <div className="ols-plugin__action-toolbar">
+                  <ActionList>
+                    <ActionListGroup>
+                      {!view.advisory && (
+                        <ActionListItem>
+                          <ApprovalGatedButton
+                            canApprove={canApprove}
+                            canApproveLoading={canApproveLoading}
+                            disabledTooltip={t('Select a remediation option to execute')}
+                            isDisabled={selectedOption < 0}
+                            mutationInProgress={mutationInProgress}
+                            onClick={openExecuteModal}
+                          >
+                            {t('Execute remediation')}
+                          </ApprovalGatedButton>
+                        </ActionListItem>
+                      )}
+                      {!view.advisory && (
+                        <ActionListItem>
+                          <ApprovalGatedButton
+                            canApprove={canApprove}
+                            canApproveLoading={canApproveLoading}
+                            mutationInProgress={mutationInProgress}
+                            onClick={() => setDenyingStage('Execution')}
+                            variant="secondary"
+                          >
+                            {t('Deny run')}
+                          </ApprovalGatedButton>
+                        </ActionListItem>
+                      )}
+                      <ActionListItem>
+                        <Button
+                          icon={<DownloadIcon />}
+                          isAriaDisabled={selectedOption < 0}
+                          onClick={handleDownloadSelected}
+                          variant="link"
+                        >
+                          {t('Download plan')}
+                        </Button>
+                      </ActionListItem>
+                    </ActionListGroup>
+                  </ActionList>
+                  <Content component={ContentVariants.small}>
+                    {t(
+                      'The autonomous features of OpenShift Lightspeed use AI technology to generate output.',
+                    )}{' '}
+                    {t('Always review AI-generated content prior to use.')}
+                  </Content>
+                </div>
+              )}
+            </PageSection>
+          </StatusGuard>
+        </PageGroup>
+
+        <ConfirmationModal
+          actionLabel={t('Execute remediation')}
+          actionVariant="danger"
+          body={
+            <Flex direction={{ default: 'column' }}>
+              <FlexItem>
+                {t(
+                  "You're about to run the automated script for Option {{ selectedOptionIndex }}",
+                  {
+                    selectedOptionIndex: executeOptionIndex !== null ? executeOptionIndex + 1 : 0,
+                  },
+                )}
+                :{' '}
+                <strong>
+                  <MarkdownContent inline text={optionData?.title ?? ''} />
+                </strong>
+              </FlexItem>
+              {optionData?.reversibility && optionData.reversibility !== 'Reversible' && (
                 <FlexItem>
-                  <RunPhaseLabel phase={view.phase} />
+                  <Alert
+                    title={t('This action is {{ reversibility }}', {
+                      reversibility: getReversibilityText(optionData?.reversibility ?? '', t),
+                    })}
+                    variant="warning"
+                  >
+                    <p>{getReversibilityDescription(optionData?.reversibility ?? '', t)}</p>
+                  </Alert>
                 </FlexItem>
               )}
               <FlexItem>
                 <Content component={ContentVariants.small}>
-                  {t('Created')} <Timestamp simple timestamp={run?.metadata?.creationTimestamp} />
+                  {t(
+                    'OpenShift Lightspeed uses AI technology to help generate this remediation plan.',
+                  )}
                 </Content>
               </FlexItem>
-            </Flex>
-          </Content>
-
-          {view?.failureReason && !(view.phase === 'Failed' && view.options.length === 0) && (
-            <Alert isInline title={view.failureReason} variant="danger" />
-          )}
-
-          {resultsError && (
-            <Alert isInline title={t('Unable to load run results.')} variant="warning" />
-          )}
-        </PageSection>
-
-        <Divider />
-
-        <StatusGuard
-          data={run?.metadata?.name ? run : undefined}
-          label={t('Run')}
-          loaded={runLoaded}
-          loadError={runError}
-        >
-          <PageSection hasBodyWrapper={false}>
-            <Flex direction={{ default: 'column' }} gap={{ default: 'gapSm' }}>
               <FlexItem>
-                <Title headingLevel="h3">{t('Agentic run details')}</Title>
-              </FlexItem>
-
-              <FlexItem>
-                <small>
+                <Content component={ContentVariants.small}>
                   <Flex spaceItems={{ default: 'spaceItemsXs' }}>
                     <FlexItem>
                       <InfoCircleIcon color="var(--pf-t--global--icon--color--status--info--default)" />
                     </FlexItem>
-                    <FlexItem>
-                      {t(
-                        'The autonomous features of OpenShift Lightspeed use AI technology to generate output.',
-                      )}{' '}
-                      {t('Always review AI-generated content prior to use.')}
-                    </FlexItem>
+                    <FlexItem>{t('Always review AI-generated content prior to use.')}</FlexItem>
                   </Flex>
-                </small>
-              </FlexItem>
-            </Flex>
-
-            <Flex spaceItems={{ default: 'spaceItemsXs' }}>
-              <FlexItem>
-                <Title headingLevel="h4">{t('Analysis request')}</Title>
-              </FlexItem>
-              <FlexItem>
-                <Popover
-                  aria-label="Analysis request info"
-                  bodyContent={
-                    <div>
-                      {t(
-                        'The original prompt or alert event string sent to the AI agent to initiate analysis.',
-                      )}
-                    </div>
-                  }
-                  headerContent={<div>{t('Analysis request')}</div>}
-                >
-                  <Button
-                    aria-label="Analysis request info"
-                    icon={<OutlinedQuestionCircleIcon />}
-                    variant="plain"
-                  />
-                </Popover>
-              </FlexItem>
-            </Flex>
-
-            {view && (
-              <AnalysisSummary
-                analysisRequest={view.request}
-                analysisSandbox={view.analysisSandbox}
-                analysisStartedAt={view.analysisStartedAt}
-                canApprove={canApprove}
-                canApproveLoading={canApproveLoading}
-                hasRemediationOptions={view.options.length > 0}
-                mutationError={mutationError}
-                mutationInProgress={mutationInProgress}
-                needsApproval={needsApproval.Analysis}
-                onApproveAnalysis={() => approveStage('Analysis')}
-                onClearError={clearMutationError}
-                phase={view.phase}
-                rootCause={view.rootCause}
-              />
-            )}
-
-            <Flex
-              direction={{ default: 'column' }}
-              gap={{ default: 'gapXs' }}
-              spaceItems={{ default: 'spaceItemsXs' }}
-            >
-              <Flex spaceItems={{ default: 'spaceItemsSm' }}>
-                <FlexItem>
-                  <Title headingLevel="h4">{t('Remediation plans')}</Title>
-                </FlexItem>
-                <FlexItem>
-                  <Label isCompact>{t('AI-generated')}</Label>
-                </FlexItem>
-                {resultsLoaded && view && view.phase === 'Proposed' && view.options.length > 0 && (
-                  <FlexItem>
-                    <Label isCompact variant="outline">
-                      {t('{{count}} remediation option', { count: view.options.length })}
-                    </Label>
-                  </FlexItem>
-                )}
-              </Flex>
-              {resultsLoaded && view?.analysisCreatedAt && (
-                <FlexItem>
-                  <Content component={ContentVariants.small}>
-                    {t('Created')} <Timestamp simple timestamp={view.analysisCreatedAt} />
-                  </Content>
-                </FlexItem>
-              )}
-            </Flex>
-
-            {!resultsLoaded ? (
-              <Skeleton screenreaderText={t('Loading remediation options')} />
-            ) : view ? (
-              renderRemediationHub(view)
-            ) : null}
-
-            {resultsLoaded &&
-              view &&
-              !TERMINAL_PHASES.includes(view.phase) &&
-              view.phase !== 'Proposed' &&
-              (needsApproval.Analysis ||
-                needsApproval.Verification ||
-                needsApproval.Escalation) && (
-                <div>
-                  <ApprovalGatedButton
-                    canApprove={canApprove}
-                    canApproveLoading={canApproveLoading}
-                    mutationInProgress={mutationInProgress}
-                    onClick={() => {
-                      if (needsApproval.Analysis) setDenyingStage('Analysis');
-                      else if (needsApproval.Verification) setDenyingStage('Verification');
-                      else if (needsApproval.Escalation) setDenyingStage('Escalation');
-                    }}
-                    variant="secondary"
-                  >
-                    {t('Deny run')}
-                  </ApprovalGatedButton>
-                </div>
-              )}
-
-            {resultsLoaded && view && view.timeline.length > 0 && (
-              <RunTimeline events={view.timeline} />
-            )}
-
-            {resultsLoaded && view?.phase === 'Proposed' && (
-              <div className="ols-plugin__action-toolbar">
-                <ActionList>
-                  <ActionListGroup>
-                    {!view.advisory && (
-                      <ActionListItem>
-                        <ApprovalGatedButton
-                          canApprove={canApprove}
-                          canApproveLoading={canApproveLoading}
-                          disabledTooltip={t('Select a remediation option to execute')}
-                          isDisabled={selectedOption < 0}
-                          mutationInProgress={mutationInProgress}
-                          onClick={openExecuteModal}
-                        >
-                          {t('Execute remediation')}
-                        </ApprovalGatedButton>
-                      </ActionListItem>
-                    )}
-                    {!view.advisory && (
-                      <ActionListItem>
-                        <ApprovalGatedButton
-                          canApprove={canApprove}
-                          canApproveLoading={canApproveLoading}
-                          mutationInProgress={mutationInProgress}
-                          onClick={() => setDenyingStage('Execution')}
-                          variant="secondary"
-                        >
-                          {t('Deny run')}
-                        </ApprovalGatedButton>
-                      </ActionListItem>
-                    )}
-                    <ActionListItem>
-                      <Button
-                        icon={<DownloadIcon />}
-                        isAriaDisabled={selectedOption < 0}
-                        onClick={handleDownloadSelected}
-                        variant="link"
-                      >
-                        {t('Download plan')}
-                      </Button>
-                    </ActionListItem>
-                  </ActionListGroup>
-                </ActionList>
-                <Content component={ContentVariants.small}>
-                  {t(
-                    'The autonomous features of OpenShift Lightspeed use AI technology to generate output.',
-                  )}{' '}
-                  {t('Always review AI-generated content prior to use.')}
                 </Content>
-              </div>
-            )}
-          </PageSection>
-        </StatusGuard>
-      </PageGroup>
-
-      <ConfirmationModal
-        actionLabel={t('Execute remediation')}
-        actionVariant="danger"
-        body={
-          <Flex direction={{ default: 'column' }}>
-            <FlexItem>
-              {t("You're about to run the automated script for Option {{ selectedOptionIndex }}", {
-                selectedOptionIndex: executeOptionIndex !== null ? executeOptionIndex + 1 : 0,
-              })}
-              :{' '}
-              <strong>
-                <MarkdownContent inline text={optionData?.title ?? ''} />
-              </strong>
-            </FlexItem>
-            {optionData?.reversibility && optionData.reversibility !== 'Reversible' && (
-              <FlexItem>
-                <Alert
-                  title={t('This action is {{ reversibility }}', {
-                    reversibility: getReversibilityText(optionData?.reversibility ?? '', t),
-                  })}
-                  variant="warning"
-                >
-                  <p>{getReversibilityDescription(optionData?.reversibility ?? '', t)}</p>
-                </Alert>
               </FlexItem>
-            )}
-            <FlexItem>
-              <Content component={ContentVariants.small}>
-                {t(
-                  'OpenShift Lightspeed uses AI technology to help generate this remediation plan.',
-                )}
-              </Content>
-            </FlexItem>
-            <FlexItem>
-              <Content component={ContentVariants.small}>
-                <Flex spaceItems={{ default: 'spaceItemsXs' }}>
-                  <FlexItem>
-                    <InfoCircleIcon color="var(--pf-t--global--icon--color--status--info--default)" />
-                  </FlexItem>
-                  <FlexItem>{t('Always review AI-generated content prior to use.')}</FlexItem>
-                </Flex>
-              </Content>
-            </FlexItem>
-          </Flex>
-        }
-        error={mutationError}
-        isLoading={mutationInProgress}
-        isOpen={executeOptionIndex !== null}
-        onAction={handleApproveExecution}
-        onClose={() => {
-          setExecuteOptionIndex(null);
-          clearMutationError();
-        }}
-        title={t('Execute remediation?')}
-      />
+            </Flex>
+          }
+          error={mutationError}
+          isLoading={mutationInProgress}
+          isOpen={executeOptionIndex !== null}
+          onAction={handleApproveExecution}
+          onClose={() => {
+            setExecuteOptionIndex(null);
+            clearMutationError();
+          }}
+          title={t('Execute remediation?')}
+        />
 
-      <ConfirmationModal
-        actionLabel={t('Deny run')}
-        actionVariant="danger"
-        body={t(
-          'Denying this run will stop all further actions. Are you sure you want to proceed?',
-        )}
-        error={mutationError}
-        isLoading={mutationInProgress}
-        isOpen={denyingStage !== null}
-        onAction={handleDeny}
-        onClose={() => {
-          setDenyingStage(null);
-          clearMutationError();
-        }}
-        title={t('Confirm Deny')}
-      />
-    </AgenticLayout>
+        <ConfirmationModal
+          actionLabel={t('Deny run')}
+          actionVariant="danger"
+          body={t(
+            'Denying this run will stop all further actions. Are you sure you want to proceed?',
+          )}
+          error={mutationError}
+          isLoading={mutationInProgress}
+          isOpen={denyingStage !== null}
+          onAction={handleDeny}
+          onClose={() => {
+            setDenyingStage(null);
+            clearMutationError();
+          }}
+          title={t('Confirm Deny')}
+        />
+      </AgenticLayout>
+    </RunUidProvider>
   );
 };
 

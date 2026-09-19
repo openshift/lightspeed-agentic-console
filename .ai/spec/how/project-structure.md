@@ -23,7 +23,8 @@
 | `src/components/runs/detail/RequiredPermissions.tsx` | `RequiredPermissions` | RBAC permission summary and expandable detail table for remediation options |
 | `src/components/runs/detail/StageInProgress.tsx` | `StageInProgress` | In-progress stage card with embedded log viewer |
 | `src/components/runs/detail/StageApprovalBanner.tsx` | `StageApprovalBanner` | Approval prompt shown in place of the in-progress/skeleton UI when a non-Execution stage requires manual approval (OLS-3688) |
-| `src/components/runs/detail/SandboxLogViewer.tsx` | `SandboxLogViewer` | Expandable log viewer with streaming and search |
+| `src/components/runs/RunUidContext.ts` | `RunUidProvider`, `useRunUid` | React context providing the run UID to detail subcomponents without prop drilling |
+| `src/components/runs/detail/SandboxLogViewer.tsx` | `SandboxLogViewer` | Expandable log viewer with streaming, retained log support, and search |
 | `src/components/AgenticLayout.tsx` | `AgenticLayout` | Watches `AgenticOLSConfig` CR; renders a system-suspended danger banner above page content when `spec.suspended` is true |
 | `src/components/runs/AgenticCapabilitiesToggle.tsx` | `AgenticCapabilitiesToggle` | Card on the run list page that suspends/resumes the agentic system by creating/patching `AgenticOLSConfig.spec.suspended`; RBAC-gated via `useAccessReview` (create/patch) |
 | `src/components/runs/agenticCapabilitiesUtils.ts` | `AGENTIC_OLS_CONFIG_NAME`, `buildAgenticOLSConfig`, `buildSuspendedPatch`, `isNotFoundError` | Pure helpers for the `AgenticOLSConfig` singleton and its suspended patch |
@@ -37,6 +38,7 @@
 | `src/constants.ts` | `RUN_NAMESPACE`, `RUN_LABEL_SOURCE`, `RESULT_LABEL_RUN` | Shared constants for K8s label keys and namespace |
 | `src/hooks/useAgenticRun.ts` | `useAgenticRun`, `mapRootCause`, `mapOption`, `mapExecution`, `mapVerification`, `mapEscalation`, `mapTimeline`, `filterLatest` | Fetches run + result CRs (including EscalationResult), maps API types → view types |
 | `src/hooks/useExecutionLogActions.ts` | `useExecutionLogActions` | Parses execution actions from sandbox pod logs |
+| `src/hooks/useRetainedLogs.ts` | `useRetainedLogs`, `probeConfigMap`, `buildServiceProxyBase` | Fetches retained logs from OTEL Admin API via K8s service proxy; probes ConfigMap for availability |
 | `src/hooks/useSandboxLogStream.ts` | `useSandboxLogStream` | Streams audit lines from sandbox pod logs |
 | `src/components/configuration/ConfigurationPage.tsx` | `ConfigurationPage` | Configuration page rendering the approval policy view |
 | `src/components/configuration/ApprovalPolicy.tsx` | `ApprovalPolicy` | Approval policy CRUD |

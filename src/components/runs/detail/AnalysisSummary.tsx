@@ -130,6 +130,7 @@ export const AnalysisSummary: FC<AnalysisSummaryProps> = ({
             {analysisSandbox && (
               <FlexItem>
                 <SandboxLogViewer
+                  phase="analysis"
                   sandbox={analysisSandbox}
                   sinceTime={analysisStartedAt}
                   streaming
@@ -155,6 +156,7 @@ export const AnalysisSummary: FC<AnalysisSummaryProps> = ({
               {analysisSandbox && (
                 <FlexItem>
                   <SandboxLogViewer
+                    phase="analysis"
                     sandbox={analysisSandbox}
                     sinceTime={analysisStartedAt}
                     title={t('Analysis')}
@@ -206,6 +208,7 @@ export const AnalysisSummary: FC<AnalysisSummaryProps> = ({
           </EmptyState>
           {analysisSandbox && (
             <SandboxLogViewer
+              phase="analysis"
               sandbox={analysisSandbox}
               sinceTime={analysisStartedAt}
               title={t('Analysis')}

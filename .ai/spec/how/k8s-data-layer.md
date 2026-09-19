@@ -62,6 +62,25 @@ consoleFetch(/api/kubernetes/.../pods/{pod}/log?container=agent&follow=true&time
   → On error: exponential backoff reconnect (1s → 15s max)
 ```
 
+### Retained Log Fetching
+
+When the OTEL collector's admin API is configured, non-streaming log viewers fetch retained logs instead of pod logs. The data path:
+
+```
+1. Probe: consoleFetch GET /api/kubernetes/api/v1/namespaces/openshift-lightspeed/configmaps/lightspeed-agentic-configuration
+   → Check for `otel-admin-endpoint` key in data
+   → Cache result at module level (single probe per session)
+
+2. Fetch: consoleFetch GET /api/kubernetes/api/v1/namespaces/{ns}/services/https:{service}:{port}/proxy/api/v1/logs
+     ?agentic_run_id={runUid}&limit={pageSize}&after={cursor}
+   → Returns {agentic_run_id, records: [{id, phase, timestamp, event, body}], has_more}
+   → Cursor-based pagination: `after` = last record ID
+   → Records filtered by phase (phaseless records included in all viewers)
+   → Records mapped to display lines: `{timestamp} [{event}] {body}`
+```
+
+The service name, namespace, and port are parsed from the `otel-admin-endpoint` URL in the ConfigMap (expected format: `https://{service}.{namespace}.svc:{port}`).
+
 ## Key Abstractions
 
 ### K8sModel Pattern
@@ -94,6 +113,7 @@ There is no per-tab instantiation — the detail page uses a single-page section
 | Per-run stop action | Kubernetes API | Console SDK `useAccessReview` for namespaced `patch agenticruns` in `agentic.openshift.io`, then `k8sPatch` JSON Patch `add` at `/spec/cancelled` with value `true` on that same resource |
 | Configuration CRUD | Kubernetes API | Console SDK `k8sCreate`/`k8sPatch`/`k8sDelete` |
 | Log streaming | Kubernetes API | `consoleFetch` with ReadableStream |
+| Retained logs | OTEL Admin API via K8s service proxy | `consoleFetch` GET through K8s service proxy; availability probed from `lightspeed-agentic-configuration` ConfigMap |
 
 ## Implementation Notes
 

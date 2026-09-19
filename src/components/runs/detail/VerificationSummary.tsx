@@ -120,6 +120,7 @@ export const VerificationSummary: FC<VerificationSummaryProps> = ({ verification
           {verification.verificationSandbox && (
             <FlexItem>
               <SandboxLogViewer
+                phase="verification"
                 sandbox={verification.verificationSandbox}
                 sinceTime={verification.verificationStartedAt}
                 title={t('Verification')}
