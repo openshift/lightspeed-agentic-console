@@ -58,6 +58,7 @@ export const EscalationSummary: FC<EscalationSummaryProps> = ({ escalation }) =>
           {escalation.escalationSandbox && (
             <FlexItem>
               <SandboxLogViewer
+                phase="escalation"
                 sandbox={escalation.escalationSandbox}
                 sinceTime={escalation.escalationStartedAt}
                 title={t('Escalation')}

@@ -79,7 +79,16 @@ The core domain of the plugin: displaying and managing runs through a multi-stag
 25. While a stage is in progress, the plugin streams logs from the sandbox pod's `agent` container.
 26. Log streaming uses `follow: true` with automatic reconnection on stream end or error (exponential backoff from 1s to 15s).
 27. When the streaming result data arrives, the log viewer auto-collapses to an expandable section.
-28. Logs are capped at 20,000 lines.
+28. Streaming logs are capped at 20,000 lines.
+
+### Retained Logs
+
+28a. When the OTEL collector's admin API is configured, non-streaming log viewers use it as the primary log source instead of pod logs. This keeps logs visible after sandbox pod termination.
+28b. OTEL availability is detected at runtime by probing the `lightspeed-agentic-configuration` ConfigMap in the `openshift-lightspeed` namespace for the `otel-admin-endpoint` key. The probe result is cached for the session.
+28c. Source selection: streaming log viewers (in-progress stages) always use pod logs; non-streaming log viewers use OTEL when available, pod logs otherwise. Pod log fetching is gated on OTEL probe completion to prevent firing before availability is known.
+28d. The OTEL Admin API is accessed via the K8s service proxy (`/api/kubernetes/api/v1/namespaces/{ns}/services/https:{name}:{port}/proxy/api/v1/logs`). Records are fetched in a single request with `limit=1000` and server-side `phase` filtering.
+28e. Streaming log viewers display a compact "Live" label next to the expandable section toggle text. Non-streaming viewers show no source indicator.
+28f. The "Hide health checks" filter is only shown for pod log sources, not OTEL.
 
 ### Escalation
 

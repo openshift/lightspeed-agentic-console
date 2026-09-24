@@ -182,6 +182,7 @@ export const ExecutionSummary: FC<ExecutionSummaryProps> = ({ execution }) => {
           {execution.executionSandbox && (
             <FlexItem>
               <SandboxLogViewer
+                phase="execution"
                 sandbox={execution.executionSandbox}
                 sinceTime={execution.executionStartedAt}
                 title={t('Execution')}

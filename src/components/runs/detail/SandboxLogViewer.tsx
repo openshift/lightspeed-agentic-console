@@ -3,6 +3,7 @@ import {
   Button,
   Checkbox,
   ExpandableSection,
+  Label,
   Toolbar,
   ToolbarContent,
   ToolbarItem,
@@ -11,11 +12,14 @@ import { LogViewer, LogViewerSearch } from '@patternfly/react-log-viewer';
 import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { type OtelPhase, useRetainedLogs } from '../../../hooks/useRetainedLogs';
 import { useSandboxLogStream } from '../../../hooks/useSandboxLogStream';
 import { SandboxView } from '../../../models/agenticrun-views';
+import { useRunUid } from '../RunUidContext';
 import './SandboxLogViewer.css';
 
 interface SandboxLogViewerProps {
+  phase?: OtelPhase;
   title: string;
   sandbox: SandboxView;
   sinceTime?: string;
@@ -23,24 +27,33 @@ interface SandboxLogViewerProps {
 }
 
 export const SandboxLogViewer: FC<SandboxLogViewerProps> = ({
+  phase,
   title,
   sandbox,
   sinceTime,
   streaming = false,
 }) => {
   const { t } = useTranslation('plugin__lightspeed-agentic-console-plugin');
+  const runUid = useRunUid();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFollowing, setIsFollowing] = useState(true);
   const [hideHealthChecks, setHideHealthChecks] = useState(true);
   const logViewerRef = useRef<{ scrollToItem?: (index: number) => void }>(null);
 
-  const { lines, loading, error } = useSandboxLogStream(
+  const retained = useRetainedLogs(runUid, isExpanded && !streaming, phase);
+  const useOtel = retained.available && !streaming && !!runUid && !retained.error;
+
+  const podLogs = useSandboxLogStream(
     sandbox,
-    isExpanded,
+    isExpanded && !useOtel && !retained.loading,
     streaming,
     sinceTime,
     hideHealthChecks,
   );
+
+  const lines = useOtel ? retained.lines : podLogs.lines;
+  const loading = retained.loading || (useOtel ? false : podLogs.loading);
+  const error = useOtel ? retained.error : podLogs.error;
 
   const prevLinesLengthRef = useRef(0);
   useEffect(() => {
@@ -79,14 +92,16 @@ export const SandboxLogViewer: FC<SandboxLogViewerProps> = ({
         <ToolbarItem>
           <LogViewerSearch minSearchChars={2} placeholder={t('Search logs...')} />
         </ToolbarItem>
-        <ToolbarItem alignSelf="center">
-          <Checkbox
-            id={`health-check-filter-${title}`}
-            isChecked={hideHealthChecks}
-            label={t('Hide health checks')}
-            onChange={(_e, checked) => setHideHealthChecks(checked)}
-          />
-        </ToolbarItem>
+        {!useOtel && (
+          <ToolbarItem alignSelf="center">
+            <Checkbox
+              id={`health-check-filter-${title}`}
+              isChecked={hideHealthChecks}
+              label={t('Hide health checks')}
+              onChange={(_e, checked) => setHideHealthChecks(checked)}
+            />
+          </ToolbarItem>
+        )}
       </ToolbarContent>
     </Toolbar>
   );
@@ -102,8 +117,18 @@ export const SandboxLogViewer: FC<SandboxLogViewerProps> = ({
     <ExpandableSection
       isExpanded={isExpanded}
       onToggle={(_e, expanded) => setIsExpanded(expanded)}
-      toggleText={
-        isExpanded ? t('Hide {{title}} logs', { title }) : t('View {{title}} logs', { title })
+      toggleContent={
+        <>
+          {isExpanded ? t('Hide {{title}} logs', { title }) : t('View {{title}} logs', { title })}
+          {streaming && (
+            <>
+              {' '}
+              <Label color="blue" isCompact>
+                {t('Live')}
+              </Label>
+            </>
+          )}
+        </>
       }
     >
       {error && <Alert isInline isPlain title={error} variant="warning" />}
