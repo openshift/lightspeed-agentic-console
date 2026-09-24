@@ -1,5 +1,5 @@
 .ols-plugin__action-toolbar {
-  background-color: var(--pf-t--global--background--color--primary--default);
+  background-color: var(--pf-t--global--background--color--floating--default);
   border-block-start: var(--pf-t--global--border--width--divider--default) solid var(--pf-t--global--border--color--default);
   bottom: 0;
   display: flex;
