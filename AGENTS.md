@@ -79,6 +79,9 @@ integration-tests/     # Playwright e2e tests
 
 ## Development Workflow
 
+### Dependency Management
+See [`.ai/spec/how/dependency-management.md`](.ai/spec/how/dependency-management.md) for conventions on dependency bumps, lockfile hygiene, and npm overrides.
+
 ### Local Development
 1. `npm install` - install dependencies
 2. `npm start` - starts webpack dev server on port 9001 with CORS

@@ -29,6 +29,7 @@ AI agents. Content is optimized for precision and machine consumption.
 | Understand K8s data flow | `how/k8s-data-layer.md` |
 | Understand the plugin system | `how/console-plugin-system.md` |
 | Understand CI and e2e testing | `how/e2e-testing.md` |
+| Handle dependency bumps | `how/dependency-management.md` |
 
 ## Cross-Reference
 
@@ -39,6 +40,7 @@ AI agents. Content is optimized for precision and machine consumption.
 | `what/configuration.md` | `how/k8s-data-layer.md` |
 | `what/audit-logging.md` | `how/k8s-data-layer.md` |
 | — | `how/e2e-testing.md` |
+| — | `how/dependency-management.md` |
 
 ## Conventions
 
