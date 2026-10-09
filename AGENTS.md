@@ -138,6 +138,19 @@ Config enforces:
 }
 ```
 
+### Updating Dependencies to Fix CVEs
+
+For transitive dependencies (packages not listed in `package.json` under `dependencies` or
+`devDependencies`):
+
+- First try updating the lockfile without adding an override:
+  `npm update <package> --package-lock-only --ignore-scripts`
+- If the update does not resolve to a patched version, add an `overrides` entry in `package.json` to
+  require one
+- Review the `package-lock.json` diff and confirm the affected dependency resolves to a patched
+  version. Sometimes there will be unrelated changes in the lockfile due to npm or Node.js version
+  differences. In that case, remove the unrelated changes before committing.
+
 ## Build & Deployment
 
 The release image is built in CI (Konflux) from the repo `Dockerfile`, which does a
