@@ -66,6 +66,9 @@ spec:
             script: |
               #!/bin/bash
               set -euo pipefail
+              # Vitest exercises the same jq filters used by the E2E installer.
+              apt-get update
+              apt-get install -y --no-install-recommends jq
               cd /home
               git clone https://github.com/openshift/lightspeed-agentic-console.git
               cd lightspeed-agentic-console

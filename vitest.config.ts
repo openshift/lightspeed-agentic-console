@@ -6,7 +6,7 @@ export default defineConfig({
     environment: 'node',
     globals: true,
     setupFiles: ['./src/test-setup.ts'],
-    include: ['src/**/*.test.{ts,tsx}'],
+    include: ['src/**/*.test.{ts,tsx}', '.tekton/integration-tests/tests/**/*.test.ts'],
   },
   resolve: {
     extensions: ['.ts', '.tsx', '.js', '.jsx'],

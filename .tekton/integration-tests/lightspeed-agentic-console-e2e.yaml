@@ -1,0 +1,288 @@
+---
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: lightspeed-agentic-console-e2e
+spec:
+  description: |
+    Claim an OpenShift 5.0 FIPS cluster, install the OLM bundle with the snapshot
+    console image, isolate both controllers, and run Playwright UI tests.
+    No EaaS space is provisioned. Konflux automatically releases the pipeline's
+    claims after completion without blocking the result; no explicit deprovision
+    task is needed.
+  params:
+    - name: SNAPSHOT
+      type: string
+      description: Konflux application snapshot containing lightspeed-agentic-console.
+    - name: test-name
+      default: lightspeed-agentic-console-e2e
+    - name: bundle-image
+      description: OLM bundle containing the classic and agentic controllers.
+      default: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-bundle:latest
+    - name: artifact-repository
+      default: quay.io/openshift-lightspeed/ols-console-artifacts
+    - name: artifact-credentials-secret
+      default: ols-konflux-artifacts-bot
+  tasks:
+    - name: extract-snapshot-metadata
+      params:
+        - name: SNAPSHOT
+          value: $(params.SNAPSHOT)
+      taskSpec:
+        params:
+          - name: SNAPSHOT
+            type: string
+        results:
+          - name: console-image
+            value: $(steps.extract.results.console-image)
+          - name: commit
+            value: $(steps.extract.results.commit)
+        steps:
+          - name: extract
+            image: registry.redhat.io/openshift4/ose-cli-rhel9:v4.22
+            env:
+              - name: SNAPSHOT
+                value: $(params.SNAPSHOT)
+            results:
+              - name: console-image
+                type: string
+              - name: commit
+                type: string
+            script: |
+              #!/bin/bash
+              set -euo pipefail
+              dnf -y install jq
+              component=$(jq -ec '
+                [.components[] | select(.name == "lightspeed-agentic-console")]
+                | if length == 1 then .[0] else error("Expected one console component") end
+              ' <<< "$SNAPSHOT")
+              image=$(jq -er '.containerImage | select(type == "string" and length > 0)' <<< "$component")
+              commit=$(jq -er '.source.git.revision | select(type == "string" and length > 0)' <<< "$component")
+              printf '%s' "$image" > "$(step.results.console-image.path)"
+              printf '%s' "$commit" > "$(step.results.commit.path)"
+    - name: claim-cluster
+      runAfter:
+        - extract-snapshot-metadata
+      taskRef:
+        resolver: git
+        params:
+          - name: url
+            value: https://github.com/openshift/konflux-tasks
+          - name: revision
+            value: main
+          - name: pathInRepo
+            value: tasks/provision-ephemeral-cluster/0.1/provision-ephemeral-cluster.yaml
+      params:
+        - name: ownerName
+          value: $(context.pipelineRun.name)
+        - name: ownerUid
+          value: $(context.pipelineRun.uid)
+        - name: workflow
+          value: generic-claim
+        - name: clusterClaim
+          value: |
+            {
+              "architecture": "amd64",
+              "cloud": "aws",
+              "labels": {
+                "region": "us-east-1",
+                "variant": "fips"
+              },
+              "owner": "obs",
+              "product": "ocp",
+              "timeout": "3h0m0s",
+              "version": "5.0"
+            }
+    - name: console-e2e
+      runAfter:
+        - claim-cluster
+      params:
+        - name: console-image
+          value: $(tasks.extract-snapshot-metadata.results.console-image)
+        - name: commit
+          value: $(tasks.extract-snapshot-metadata.results.commit)
+        - name: bundle-image
+          value: $(params.bundle-image)
+        - name: clusterCredentialsSecretRef
+          value: $(tasks.claim-cluster.results.secretRef)
+        - name: artifact-repository
+          value: $(params.artifact-repository)
+        - name: artifact-credentials-secret
+          value: $(params.artifact-credentials-secret)
+        - name: run-name
+          value: $(context.pipelineRun.name)
+      taskSpec:
+        params:
+          - name: console-image
+          - name: commit
+          - name: bundle-image
+          - name: clusterCredentialsSecretRef
+          - name: artifact-repository
+          - name: artifact-credentials-secret
+          - name: run-name
+        volumes:
+          - name: workdir
+            emptyDir: {}
+          - name: credentials
+            secret:
+              secretName: $(params.clusterCredentialsSecretRef)
+          - name: artifact-credentials
+            secret:
+              secretName: $(params.artifact-credentials-secret)
+              items:
+                - key: .dockerconfigjson
+                  path: oci-storage-dockerconfigjson
+        stepTemplate:
+          volumeMounts:
+            - name: workdir
+              mountPath: /workspace
+            - name: credentials
+              mountPath: /credentials
+              readOnly: true
+        steps:
+          - name: install-and-isolate
+            onError: continue
+            image: mcr.microsoft.com/playwright:v1.63.0-noble
+            computeResources:
+              limits:
+                memory: 4Gi
+            env:
+              - name: COMMIT_SHA
+                value: $(params.commit)
+              - name: CONSOLE_IMAGE
+                value: $(params.console-image)
+              - name: BUNDLE_IMAGE
+                value: $(params.bundle-image)
+              - name: KUBECONFIG
+                value: /credentials/kubeconfig
+            script: |
+              #!/bin/bash
+              set -euo pipefail
+              mkdir -p /workspace/artifacts/konflux-artifacts
+              apt-get update
+              apt-get install -y --no-install-recommends jq
+              curl -fsSL https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/latest/openshift-client-linux.tar.gz \
+                | tar -xz -C /usr/local/bin oc kubectl
+              curl -fsSL -o /usr/local/bin/operator-sdk \
+                https://github.com/operator-framework/operator-sdk/releases/download/v1.36.1/operator-sdk_linux_amd64
+              chmod +x /usr/local/bin/operator-sdk
+              git clone https://github.com/openshift/lightspeed-agentic-console.git /workspace/source
+              cd /workspace/source
+              git fetch origin "$COMMIT_SHA"
+              git -c advice.detachedHead=false checkout "$COMMIT_SHA"
+              bash .tekton/integration-tests/scripts/install-and-isolate.sh \
+                2>&1 | tee /workspace/artifacts/install-and-isolate.log
+              touch /workspace/cluster-isolated
+          - name: run-playwright
+            onError: continue
+            image: mcr.microsoft.com/playwright:v1.63.0-noble
+            computeResources:
+              limits:
+                memory: 8Gi
+            env:
+              - name: CI
+                value: "true"
+              - name: KUBECONFIG_PATH
+                value: /credentials/kubeconfig
+              - name: KUBECONFIG
+                value: /credentials/kubeconfig
+              - name: LOGIN_IDP
+                value: kube:admin
+              - name: LOGIN_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: $(params.clusterCredentialsSecretRef)
+                    key: kubeAdminPassword
+              - name: NODE_OPTIONS
+                value: --max-old-space-size=4096
+            script: |
+              #!/bin/bash
+              set -euo pipefail
+              # Copy reports even when dependency installation/global setup/tests fail.
+              copy_reports() {
+                if [ -d /workspace/source/gui_test_screenshots ]; then
+                  cp -a /workspace/source/gui_test_screenshots /workspace/artifacts/
+                fi
+              }
+              trap copy_reports EXIT
+              if [ ! -f /workspace/cluster-isolated ]; then
+                echo "Installation/isolation failed; refusing to start Playwright" >&2
+                exit 1
+              fi
+              : "${LOGIN_PASSWORD:?Claim credentials contain an empty kubeAdminPassword}"
+              # Each step has its own root filesystem; download oc here as well.
+              curl -fsSL https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/latest/openshift-client-linux.tar.gz \
+                | tar -xz -C /usr/local/bin oc kubectl
+              BASE_URL="https://$(oc get route console -n openshift-console -o jsonpath='{.spec.host}')"
+              export BASE_URL
+              cd /workspace/source
+              npm ci --no-fund
+              npx playwright test
+          - name: gather-cluster-resources
+            onError: continue
+            ref:
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/tekton-integration-catalog
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/gather-cluster-resources/0.1/gather-cluster-resources.yaml
+            params:
+              - name: credentials
+                value: credentials
+              - name: kubeconfig
+                value: kubeconfig
+              - name: artifact-dir
+                value: /workspace/artifacts/konflux-artifacts
+          - name: push-artifacts
+            onError: continue
+            ref:
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/tekton-integration-catalog.git
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/secure-push-oci/0.1/secure-push-oci.yaml
+            params:
+              - name: workdir-path
+                value: /workspace/artifacts
+              - name: oci-ref
+                value: $(params.artifact-repository):agentic-$(params.run-name)
+              - name: credentials-volume-name
+                value: artifact-credentials
+              - name: always-pass
+                value: "false"
+          - name: fail-if-any-step-failed
+            ref:
+              resolver: git
+              params:
+                - name: url
+                  value: https://github.com/konflux-ci/tekton-integration-catalog.git
+                - name: revision
+                  value: main
+                - name: pathInRepo
+                  value: stepactions/fail-if-any-step-failed/0.1/fail-if-any-step-failed.yaml
+  finally:
+    - name: export-logs-for-retention
+      taskRef:
+        resolver: git
+        params:
+          - name: url
+            value: https://github.com/konflux-ci/tekton-integration-catalog.git
+          - name: revision
+            value: main
+          - name: pathInRepo
+            value: tasks/export-logs/0.1/export-logs-to-quay.yaml
+      params:
+        - name: pipeline-run-name
+          value: $(context.pipelineRun.name)
+        - name: namespace
+          value: $(context.pipelineRun.namespace)
+        - name: quay-repo
+          value: $(params.artifact-repository)
+        - name: artifact-credentials-secret
+          value: $(params.artifact-credentials-secret)
