@@ -47,11 +47,14 @@
 | `webpack.config.ts` | — | Module federation and build configuration |
 | `playwright.config.ts` | — | Playwright e2e test configuration |
 | `integration-tests/support/fixtures.ts` | `test`, `oc`, `gatherClusterArtifacts` | Custom test fixture, cluster CLI helper, artifact collection |
-| `integration-tests/support/global-setup.ts` | `globalSetup` | Operator readiness, browser login, storageState |
+| `integration-tests/support/global-setup.ts` | `globalSetup` | Bundle install/reuse, image patch, controller isolation, browser login and storageState |
+| `integration-tests/support/global-setup.test.ts` | — | Setup regressions included in `npm run test-unit` |
 | `integration-tests/support/global-teardown.ts` | `globalTeardown` | Cluster cleanup and artifact gathering |
 | `.tekton/lightspeed-agentic-console-pull-request.yaml` | — | Konflux PipelineRun for PR builds |
 | `.tekton/lightspeed-agentic-console-push.yaml` | — | Konflux PipelineRun for push builds |
-| `.tekton/integration-tests/lightspeed-agentic-console-pre-commit.yaml` | — | Konflux integration test Pipeline running lint, unit tests, and i18n checks |
+| `.tekton/integration-tests/lightspeed-agentic-console-pre-commit.yaml` | — | Cluster-free Konflux checks: lint, type-check, unit tests, i18n |
+| `.tekton/integration-tests/lightspeed-agentic-console-e2e.yaml` | — | Claim OCP 5.0 FIPS cluster, prepare tools/credentials, run Playwright, retain artifacts |
+| `.tekton/integration-tests/integration-test-scenarios.yaml` | — | Console-component E2E registration for the Konflux tenant |
 
 ## Key Entry Points
 

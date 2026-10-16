@@ -14,7 +14,7 @@ metadata:
       || "package-lock.json".pathChanged() || "console-extensions.json".pathChanged()
       || "tsconfig.json".pathChanged() || "tsconfig.build.json".pathChanged()
       || "webpack.config.ts".pathChanged() || "LICENSE".pathChanged()
-      || ".tekton/**".pathChanged())
+      || "integration-tests/**".pathChanged() || ".tekton/**".pathChanged())
   labels:
     appstudio.openshift.io/application: ols
     appstudio.openshift.io/component: lightspeed-agentic-console
