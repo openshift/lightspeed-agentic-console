@@ -61,8 +61,12 @@ spec:
                 value: $(params.commit)
             image: mcr.microsoft.com/playwright:v1.64.1-noble
             resources:
+              requests:
+                memory: 6Gi
+                cpu: "1"
               limits:
-                memory: 4Gi
+                memory: 8Gi
+                cpu: "2"
             script: |
               #!/bin/bash
               set -euo pipefail
