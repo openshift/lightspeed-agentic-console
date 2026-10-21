@@ -55,10 +55,29 @@ unnecessary: Konflux performs cleanup without blocking the pipeline result.
 #### Bundle installation and controller isolation
 
 The `bundle-image` parameter defaults to
-`quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-bundle:latest`.
+`quay.io/openshift-lightspeed/lightspeed-operator-bundle:latest`.
 It must contain both `lightspeed-operator-controller-manager` and
 `lightspeed-agentic-operator-controller-manager`; a classic-only bundle fails explicitly.
 Use a digest override for a reproducible investigation.
+
+Before installing or reusing a bundle, global setup applies the operator's
+`config/manager/imagedigestmirrorset.yaml` from upstream `main`. It waits up to 30 minutes
+for every populated MachineConfigPool to converge and for its rendered
+`/etc/containers/registries.conf` to contain the requested sources and mirrors. Checking
+rendered content avoids accepting the old `Updated=True` status immediately after apply.
+Mirror application or convergence failures stop setup before bundle installation.
+
+The pipeline parameter `image-digest-mirror-set-url` (environment variable
+`IMAGE_DIGEST_MIRROR_SET_URL` locally) can point at a raw GitHub branch or commit URL.
+Until the operator IDMS additions merge, override it with the pushed operator branch's
+manifest; the default `main` URL will not include unmerged mappings. Prefer commit URLs
+and bundle digests for reproducible investigations.
+
+This modifies cluster-wide image pull configuration and requires cluster-admin access
+on a standalone OCP cluster. Setup leaves the IDMS installed for the claimed cluster's
+lifetime. The mirrors cover project CI images, not every third-party operand; valid
+pull credentials are still needed for unmapped `registry.redhat.io` images, including
+PostgreSQL, Dataverse exporter, MCP server and RHOKP.
 
 The PR image is set on the **classic operator's `--agentic-console-image` argument**.
 Global setup updates that argument in the CSV deployment spec, not the OLM-owned child
@@ -183,7 +202,8 @@ Output is written to `gui_test_screenshots/artifacts/cluster/`.
 | `LOGIN_USERNAME` | Login username | `kubeadmin` |
 | `LOGIN_PASSWORD` | Login password | (required) |
 | `LOGIN_IDP` | Identity provider name | `kube:admin` |
-| `BUNDLE_IMAGE` | OLM bundle installed by global setup when absent | `quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-bundle:latest` |
+| `BUNDLE_IMAGE` | OLM bundle installed by global setup when absent | `quay.io/openshift-lightspeed/lightspeed-operator-bundle:latest` |
+| `IMAGE_DIGEST_MIRROR_SET_URL` | Operator IDMS manifest applied before bundle setup | Operator `main` at `config/manager/imagedigestmirrorset.yaml` |
 | `CONSOLE_IMAGE` | Optional plugin image override applied by global setup | Existing image locally; SNAPSHOT image in CI |
 | `OLS_NAMESPACE` | Namespace used by cluster setup | `openshift-lightspeed` |
 

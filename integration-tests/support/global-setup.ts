@@ -54,6 +54,74 @@ const waitFor = async (check: () => boolean, timeout: number, message: string) =
   throw new Error(`${message}${lastError ? `: ${lastError}` : ''}`);
 };
 
+const configureImageMirrors = async () => {
+  const url =
+    process.env.IMAGE_DIGEST_MIRROR_SET_URL ||
+    'https://raw.githubusercontent.com/openshift/lightspeed-operator/main/config/manager/imagedigestmirrorset.yaml';
+  console.log(`Applying image digest mirrors from ${url}`);
+  const idms = JSON.parse(oc(['apply', '-f', url, '-o', 'json']));
+  const mirrors: { source: string; mirrors: string[] }[] = idms.spec.imageDigestMirrors;
+  if (!mirrors.length) {
+    throw new Error('ImageDigestMirrorSet contains no mirrors');
+  }
+  const required = mirrors.flatMap((entry) => [entry.source, ...entry.mirrors]);
+  // Updated=True alone can still describe the old config immediately after applying
+  // an IDMS. Check the rendered registries file too, and handle unchanged IDMSs.
+  await waitFor(
+    () => {
+      const pools = JSON.parse(oc(['get', 'machineconfigpools', '-o', 'json'])).items;
+      const populated = pools.filter(
+        (pool: { status: { machineCount: number } }) => pool.status.machineCount > 0,
+      );
+      return (
+        populated.length > 0 &&
+        populated.every(
+          (pool: {
+            spec: { configuration: { name: string } };
+            status: {
+              configuration: { name: string };
+              machineCount: number;
+              updatedMachineCount: number;
+              readyMachineCount: number;
+              unavailableMachineCount: number;
+              conditions: { type: string; status: string }[];
+            };
+          }) => {
+            const status = pool.status;
+            if (
+              status.configuration.name !== pool.spec.configuration.name ||
+              status.updatedMachineCount !== status.machineCount ||
+              status.readyMachineCount !== status.machineCount ||
+              status.unavailableMachineCount !== 0 ||
+              !status.conditions.some((c) => c.type === 'Updated' && c.status === 'True') ||
+              status.conditions.some((c) => c.type === 'Degraded' && c.status === 'True')
+            ) {
+              return false;
+            }
+            const config = JSON.parse(
+              oc(['get', 'machineconfig', pool.spec.configuration.name, '-o', 'json']),
+            );
+            const file = config.spec.config.storage.files.find(
+              (entry: { path: string }) => entry.path === '/etc/containers/registries.conf',
+            );
+            const source: string = file?.contents?.source || '';
+            if (!source.startsWith('data:')) {
+              return false;
+            }
+            const comma = source.indexOf(',');
+            const contents = source.slice(0, comma).endsWith(';base64')
+              ? Buffer.from(source.slice(comma + 1), 'base64').toString('utf-8')
+              : decodeURIComponent(source.slice(comma + 1));
+            return required.every((entry) => contents.includes(`"${entry}"`));
+          },
+        )
+      );
+    },
+    30 * MINUTE,
+    'Image digest mirrors did not become ready on all MachineConfigPools',
+  );
+};
+
 const setupCluster = async () => {
   const image = process.env.CONSOLE_IMAGE;
   const version = JSON.parse(oc(['get', 'clusterversion', 'version', '-o', 'json']));
@@ -63,6 +131,8 @@ const setupCluster = async () => {
   if (!completed || Number.parseInt(completed.version, 10) < 5) {
     throw new Error('Agentic console E2E setup requires OpenShift 5.0 or later');
   }
+
+  await configureImageMirrors();
 
   if (!oc(['get', 'namespace', OLS_NAMESPACE, '-o', 'name', '--ignore-not-found']).trim()) {
     oc(['create', 'namespace', OLS_NAMESPACE]);
@@ -74,8 +144,7 @@ const setupCluster = async () => {
   if (csvs.length === 0) {
     console.log(`Installing the OLS bundle in ${OLS_NAMESPACE}`);
     const bundle =
-      process.env.BUNDLE_IMAGE ||
-      'quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-bundle:latest';
+      process.env.BUNDLE_IMAGE || 'quay.io/openshift-lightspeed/lightspeed-operator-bundle:latest';
     const result = execFileSync(
       'operator-sdk',
       [

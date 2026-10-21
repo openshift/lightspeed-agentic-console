@@ -18,7 +18,10 @@ spec:
       default: lightspeed-agentic-console-e2e
     - name: bundle-image
       description: OLM bundle containing the classic and agentic controllers.
-      default: quay.io/redhat-user-workloads/crt-nshift-lightspeed-tenant/ols-bundle:latest
+      default: quay.io/openshift-lightspeed/lightspeed-operator-bundle:latest
+    - name: image-digest-mirror-set-url
+      description: Operator IDMS manifest; override with a branch or commit URL before its changes merge.
+      default: https://raw.githubusercontent.com/openshift/lightspeed-operator/main/config/manager/imagedigestmirrorset.yaml
     - name: artifact-repository
       default: quay.io/openshift-lightspeed/ols-console-artifacts
     - name: artifact-credentials-secret
@@ -103,6 +106,8 @@ spec:
           value: $(tasks.extract-snapshot-metadata.results.commit)
         - name: bundle-image
           value: $(params.bundle-image)
+        - name: image-digest-mirror-set-url
+          value: $(params.image-digest-mirror-set-url)
         - name: clusterCredentialsSecretRef
           value: $(tasks.claim-cluster.results.secretRef)
         - name: artifact-repository
@@ -116,6 +121,7 @@ spec:
           - name: console-image
           - name: commit
           - name: bundle-image
+          - name: image-digest-mirror-set-url
           - name: clusterCredentialsSecretRef
           - name: artifact-repository
           - name: artifact-credentials-secret
@@ -155,6 +161,8 @@ spec:
                 value: $(params.console-image)
               - name: BUNDLE_IMAGE
                 value: $(params.bundle-image)
+              - name: IMAGE_DIGEST_MIRROR_SET_URL
+                value: $(params.image-digest-mirror-set-url)
               - name: KUBECONFIG
                 value: /credentials/kubeconfig
               - name: KUBECONFIG_PATH

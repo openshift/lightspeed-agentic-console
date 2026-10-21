@@ -50,17 +50,67 @@ const csv = () => ({
 let installed: ReturnType<typeof csv>[];
 let pluginReady: boolean;
 let podsStopped: boolean;
+let mirrorsReady: boolean;
+const mirrorURL = 'https://example.com/idms.yaml';
+const mirrorSource = 'registry.redhat.io/openshift-lightspeed/test';
+const mirrorTarget = 'quay.io/test/operator';
 
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv('KUBECONFIG_PATH', '/test/kubeconfig');
   vi.stubEnv('CONSOLE_IMAGE', 'console:pr');
   vi.stubEnv('BUNDLE_IMAGE', 'bundle:test');
+  vi.stubEnv('IMAGE_DIGEST_MIRROR_SET_URL', mirrorURL);
   vi.stubEnv('OLS_NAMESPACE', 'openshift-lightspeed');
   installed = [csv()];
   pluginReady = true;
   podsStopped = true;
+  mirrorsReady = true;
   vi.mocked(oc).mockImplementation((args) => {
+    if (args[0] === 'apply' && args[2] === mirrorURL) {
+      return JSON.stringify({
+        spec: { imageDigestMirrors: [{ source: mirrorSource, mirrors: [mirrorTarget] }] },
+      });
+    }
+    if (args[1] === 'machineconfigpools') {
+      return JSON.stringify({
+        items: [
+          {
+            metadata: { name: 'worker' },
+            spec: { configuration: { name: 'rendered-worker' } },
+            status: {
+              configuration: { name: 'rendered-worker' },
+              machineCount: 1,
+              updatedMachineCount: 1,
+              readyMachineCount: 1,
+              unavailableMachineCount: 0,
+              conditions: [
+                { type: 'Updated', status: 'True' },
+                { type: 'Degraded', status: 'False' },
+              ],
+            },
+          },
+        ],
+      });
+    }
+    if (args[1] === 'machineconfig') {
+      return JSON.stringify({
+        spec: {
+          config: {
+            storage: {
+              files: [
+                {
+                  path: '/etc/containers/registries.conf',
+                  contents: {
+                    source: `data:;base64,${Buffer.from(mirrorsReady ? `"${mirrorSource}"\n"${mirrorTarget}"` : 'old config').toString('base64')}`,
+                  },
+                },
+              ],
+            },
+          },
+        },
+      });
+    }
     if (args[0] !== 'get') {
       return '';
     }
@@ -133,6 +183,72 @@ describe('global cluster setup', () => {
       expect.arrayContaining(['run', 'bundle', 'bundle:test', '--kubeconfig', '/test/kubeconfig']),
       expect.objectContaining({ timeout: expect.any(Number) }),
     );
+  });
+
+  it('applies mirrors before bundle installation and uses the public bundle fallback', async () => {
+    installed = [];
+    vi.stubEnv('BUNDLE_IMAGE', '');
+    await expect(globalSetup(config)).rejects.toThrow('Browser login reached');
+    expect(oc).toHaveBeenCalledWith(['apply', '-f', mirrorURL, '-o', 'json']);
+    const applyIndex = vi.mocked(oc).mock.calls.findIndex(([args]) => args[0] === 'apply');
+    expect(vi.mocked(oc).mock.invocationCallOrder[applyIndex]).toBeLessThan(
+      vi.mocked(execFileSync).mock.invocationCallOrder[0],
+    );
+    expect(execFileSync).toHaveBeenCalledWith(
+      'operator-sdk',
+      expect.arrayContaining(['quay.io/openshift-lightspeed/lightspeed-operator-bundle:latest']),
+      expect.anything(),
+    );
+  });
+
+  it('does not install while rendered node configuration lacks the mirrors', async () => {
+    vi.useFakeTimers();
+    installed = [];
+    mirrorsReady = false;
+    const result = globalSetup(config).catch((error: Error) => error);
+    await vi.runAllTimersAsync();
+    expect(await result).toEqual(
+      expect.objectContaining({
+        message: expect.stringContaining('Image digest mirrors did not become ready'),
+      }),
+    );
+    expect(execFileSync).not.toHaveBeenCalled();
+  });
+
+  it('waits for pools to converge even when rendered mirrors are present', async () => {
+    vi.useFakeTimers();
+    installed = [];
+    const defaultOc = vi.mocked(oc).getMockImplementation()!;
+    vi.mocked(oc).mockImplementation((args) => {
+      const output = defaultOc(args);
+      if (args[1] !== 'machineconfigpools') {
+        return output;
+      }
+      const pools = JSON.parse(output);
+      pools.items[0].status.updatedMachineCount = 0;
+      return JSON.stringify(pools);
+    });
+    const result = globalSetup(config).catch((error: Error) => error);
+    await vi.runAllTimersAsync();
+    expect(await result).toEqual(
+      expect.objectContaining({
+        message: expect.stringContaining('Image digest mirrors did not become ready'),
+      }),
+    );
+    expect(execFileSync).not.toHaveBeenCalled();
+  });
+
+  it('stops before installation when applying the IDMS fails', async () => {
+    installed = [];
+    const defaultOc = vi.mocked(oc).getMockImplementation()!;
+    vi.mocked(oc).mockImplementation((args) => {
+      if (args[0] === 'apply') {
+        throw new Error('IDMS forbidden');
+      }
+      return defaultOc(args);
+    });
+    await expect(globalSetup(config)).rejects.toThrow('IDMS forbidden');
+    expect(execFileSync).not.toHaveBeenCalled();
   });
 
   it('patches the classic manager image and isolates only the two controllers', async () => {
