@@ -60,6 +60,13 @@ It must contain both `lightspeed-operator-controller-manager` and
 `lightspeed-agentic-operator-controller-manager`; a classic-only bundle fails explicitly.
 Use a digest override for a reproducible investigation.
 
+Before invoking `operator-sdk run bundle`, setup labels the OLS namespace with
+`pod-security.kubernetes.io/enforce=baseline`. Operator-sdk v1.36.1 creates a
+temporary OLM registry pod with the legacy security context, including an init
+container without the security context required by PodSecurity `restricted`.
+Clusters that default namespaces to restricted enforcement reject that pod, so
+the namespace is relaxed only for the lifetime of this ephemeral test run.
+
 Before installing or reusing a bundle, global setup applies the operator's
 `config/manager/imagedigestmirrorset.yaml` from upstream `main`. It waits up to 30 minutes
 for every populated MachineConfigPool to converge and for its rendered

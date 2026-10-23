@@ -185,6 +185,46 @@ describe('global cluster setup', () => {
     );
   });
 
+  it('prints operator-sdk output when bundle installation fails', async () => {
+    installed = [];
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.mocked(execFileSync).mockImplementationOnce(() => {
+      throw Object.assign(new Error('Command failed'), {
+        stdout: 'operator-sdk stdout',
+        stderr: 'Failed to run bundle: boom',
+        status: 1,
+        signal: null,
+      });
+    });
+
+    await expect(globalSetup(config)).rejects.toThrow('Command failed');
+    expect(errorSpy).toHaveBeenCalledWith('operator-sdk stdout:\noperator-sdk stdout');
+    expect(errorSpy).toHaveBeenCalledWith('operator-sdk stderr:\nFailed to run bundle: boom');
+    expect(errorSpy).toHaveBeenCalledWith('operator-sdk run bundle failed (status=1, signal=none)');
+    errorSpy.mockRestore();
+  });
+
+  it('relaxes PodSecurity enforcement before installing the operator-sdk registry pod', async () => {
+    installed = [];
+    await expect(globalSetup(config)).rejects.toThrow('Browser login reached');
+    const labelIndex = vi
+      .mocked(oc)
+      .mock.calls.findIndex(([args]) => args[0] === 'label' && args[1] === 'namespace');
+    expect(labelIndex).toBeGreaterThanOrEqual(0);
+    expect(vi.mocked(oc).mock.invocationCallOrder[labelIndex]).toBeLessThan(
+      vi.mocked(execFileSync).mock.invocationCallOrder[0],
+    );
+    expect(oc).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        'label',
+        'namespace',
+        'openshift-lightspeed',
+        'pod-security.kubernetes.io/enforce=baseline',
+        'pod-security.kubernetes.io/enforce-version=latest',
+      ]),
+    );
+  });
+
   it('applies mirrors before bundle installation and uses the public bundle fallback', async () => {
     installed = [];
     vi.stubEnv('BUNDLE_IMAGE', '');

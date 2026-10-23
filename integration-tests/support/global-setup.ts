@@ -142,24 +142,56 @@ const setupCluster = async () => {
     JSON.parse(oc(['get', 'csv', '-n', OLS_NAMESPACE, '-o', 'json'])).items;
   let csvs = getCSVs();
   if (csvs.length === 0) {
+    // operator-sdk v1.36.1 creates a temporary registry pod with the legacy
+    // security context, which violates a cluster-wide PodSecurity restricted
+    // default. Relax enforcement for this ephemeral namespace so only the
+    // short-lived operator-sdk registry pod can be admitted.
+    oc([
+      'label',
+      'namespace',
+      OLS_NAMESPACE,
+      'pod-security.kubernetes.io/enforce=baseline',
+      'pod-security.kubernetes.io/enforce-version=latest',
+      '--overwrite',
+    ]);
     console.log(`Installing the OLS bundle in ${OLS_NAMESPACE}`);
     const bundle =
       process.env.BUNDLE_IMAGE || 'quay.io/openshift-lightspeed/lightspeed-operator-bundle:latest';
-    const result = execFileSync(
-      'operator-sdk',
-      [
-        'run',
-        'bundle',
-        '--namespace',
-        OLS_NAMESPACE,
-        '--timeout',
-        '30m',
-        bundle,
-        '--kubeconfig',
-        process.env.KUBECONFIG_PATH!,
-      ],
-      { encoding: 'utf-8', timeout: 32 * MINUTE, stdio: ['ignore', 'pipe', 'inherit'] },
-    );
+    let result: string;
+    try {
+      result = execFileSync(
+        'operator-sdk',
+        [
+          'run',
+          'bundle',
+          '--namespace',
+          OLS_NAMESPACE,
+          '--timeout',
+          '30m',
+          bundle,
+          '--kubeconfig',
+          process.env.KUBECONFIG_PATH!,
+        ],
+        { encoding: 'utf-8', timeout: 32 * MINUTE, stdio: ['ignore', 'pipe', 'pipe'] },
+      );
+    } catch (error: unknown) {
+      const failure = error as {
+        stdout?: string | Buffer;
+        stderr?: string | Buffer;
+        status?: number | null;
+        signal?: NodeJS.Signals | null;
+      };
+      console.error(
+        `operator-sdk run bundle failed (status=${failure.status ?? 'unknown'}, signal=${failure.signal ?? 'none'})`,
+      );
+      if (failure.stdout) {
+        console.error(`operator-sdk stdout:\n${failure.stdout.toString()}`);
+      }
+      if (failure.stderr) {
+        console.error(`operator-sdk stderr:\n${failure.stderr.toString()}`);
+      }
+      throw error;
+    }
     console.log(result);
     csvs = getCSVs();
   } else {
