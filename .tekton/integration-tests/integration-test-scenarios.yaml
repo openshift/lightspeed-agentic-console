@@ -1,0 +1,22 @@
+# Apply in the Konflux tenant after the pipeline and helper script are on main.
+---
+apiVersion: appstudio.redhat.com/v1beta2
+kind: IntegrationTestScenario
+metadata:
+  name: lightspeed-agentic-console-e2e
+  namespace: crt-nshift-lightspeed-tenant
+spec:
+  application: ols
+  contexts:
+    - name: component_lightspeed-agentic-console
+      description: Agentic console UI tests on an OpenShift 5.0 FIPS cluster
+  resolverRef:
+    resolver: git
+    resourceKind: pipeline
+    params:
+      - name: url
+        value: https://github.com/openshift/lightspeed-agentic-console
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: .tekton/integration-tests/lightspeed-agentic-console-e2e.yaml
