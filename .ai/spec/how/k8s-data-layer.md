@@ -6,16 +6,20 @@
 |---|---|---|
 | `src/models/agenticrun.ts` | `LightspeedAgenticRunModel`, `LightspeedAgenticRunGVK`, all `*Model`/`*GVK` constants | K8sModel definitions for the Console SDK's watch/patch/create/delete functions |
 | `src/models/agenticrun.ts` | `LightspeedAgenticRun`, `LightspeedAgenticRunApproval`, `*ResultCR` types | TypeScript types for each CRD |
+| `src/models/agenticrun.ts` | `isRunStopping`, `isRunStopPending`, `canStopRun`, `isCancelledByUser` | Derives stop eligibility and cancellation/teardown state from the AgenticRun spec and conditions |
 | `src/models/agenticrun.ts` | `AgenticRunK8s`, `AgenticRunApprovalK8s`, `AnalysisResultK8s`, `ExecutionResultK8s`, `VerificationResultK8s`, `EscalationResultK8s` | K8s intersection types (`CRDType & K8sResourceCommon`) for `useK8sWatchResource` generics |
-| `src/models/agenticrun-views.ts` | `AgenticRunView`, `RemediationOptionView`, `ExecutionView`, `VerificationView`, `EscalationView` | View-model types — output of the API→view mapping layer |
-| `src/hooks/useAgenticRun.ts` | `useAgenticRun`, `mapToAgenticRunView` | Fetches all run-related CRs, evaluates approval/stop access, and maps to a single `AgenticRunView` |
+| `src/models/agenticrun-views.ts` | `AgenticRunView`, `RemediationOptionView`, `ExecutionView`, `VerificationView`, `EscalationView` | View-model types — `AgenticRunView` carries `stopping`, `stopPending`, and `sandboxShutdownPending` lifecycle fields |
+| `src/hooks/useAgenticRun.ts` | `useAgenticRun`, `mapToAgenticRunView` | Fetches all run-related CRs, evaluates approval/stop access, exposes stop mutation state, and maps to a single `AgenticRunView` |
+| `src/hooks/useStopRun.ts` | `useStopRunAccess`, `useStopRunMutation` | Namespaced patch authorization and JSON Patch cancellation mutation for an AgenticRun |
+| `src/components/runs/StopRunButton.tsx` | `StopRunButton` | Active-phase Stop control used in list rows and run detail, with access-disabled state and denial tooltip |
+| `src/components/runs/StopRunModal.tsx` | `StopRunModal` | Confirmation modal with an execution-specific warning, loading state, and inline error |
 | `src/utils/approval.ts` | `buildApprovalPatch` | Generates JSON Patch arrays for `AgenticRunApproval` mutations |
 
 ## Data Flow
 
 ### AgenticRun Watching
 
-[PLANNED: OLS-3298, OLS-4131] The watched AgenticRun type includes optional `spec.cancelled` and the run-level `Stopping` condition in `status.conditions`. The detail view shows `Stopping` while that condition is `True`, derives the final cancellation presentation from the failing condition's `reason: CancelledByUser` once the outcome is recorded, and retains sandbox status references while cleanup is pending. The `Stopping` condition is consumed at the presentation layer only; `derivePhaseFromConditions` does not use it.
+The watched AgenticRun type includes optional `spec.cancelled` and `status.conditions` (including the run-level `Stopping` condition). `derivePhaseFromConditions` ignores `Stopping`; `stopping` is true only for `Stopping=True`, and `stopPending` is true for `spec.cancelled=true` or `Stopping=True`. `mapToAgenticRunView` suppresses `failureReason` while stopping and maps a final cancellation to `Stopped by user` only when the derived phase is `Failed` and the effective failing condition has reason `CancelledByUser`. If a sandbox reference remains during a pending stop or after final cancellation or an `EmergencyStopped` outcome, the view sets `sandboxShutdownPending`. The `Stopping` label is applied at presentation time in both list and detail views.
 
 ```
 useK8sWatchResource(LightspeedAgenticRunGVK, {name, namespace})
@@ -99,7 +103,9 @@ Approval logic is embedded in the `useAgenticRun` hook — a single hook instanc
 - Write: `approveStage(stageType)` / `denyExecution()` → `k8sPatch` with patches from `buildApprovalPatch`
 - State helpers: `stageNeedsApproval()` and `getStageStatus()` from `src/utils/approval.ts` are used internally
 
-[PLANNED: OLS-3298] Stop access is evaluated separately: `canStop` / loading state comes from `useAccessReview` for verb `patch`, resource `agenticruns`, and API group `agentic.openshift.io`, scoped to `run.metadata.namespace` (falling back to the run-watch namespace before the run loads). The Stop action targets that same namespaced AgenticRun and sends JSON Patch `add /spec/cancelled` with value `true`; this changes no other field and succeeds whether `cancelled` is absent or already present (`spec` remains required).
+Stop access is evaluated separately by `useStopRunAccess` through `useAccessReview` for `patch` on `agenticruns` in API group `agentic.openshift.io`, scoped to the row/run namespace. The detail hook falls back to the run-watch namespace before the run loads. `useStopRunMutation` targets that same namespaced AgenticRun and sends JSON Patch `add /spec/cancelled` with value `true`; this is separate from approval patches and changes no other field.
+
+The mutation types the patch response as `AgenticRunK8s` and returns success only when `response.spec?.cancelled === true`. A resolved patch whose response omits or clears that field is a failure: `stopError` explains that cancellation was not accepted and an operator/CRD upgrade is needed. Both callers retain their confirmation on this failure. This guards against older CRDs pruning the unknown field while returning HTTP 200; it does not establish completed teardown or change the watched phase.
 
 There is no per-tab instantiation — the detail page uses a single-page sectioned layout.
 

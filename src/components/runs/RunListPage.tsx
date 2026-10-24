@@ -26,6 +26,8 @@ import {
   DropdownList,
   EmptyState,
   EmptyStateBody,
+  Flex,
+  FlexItem,
   Icon,
   Label,
   MenuToggle,
@@ -36,15 +38,21 @@ import RhUiInformationFillIcon from '@patternfly/react-icons/dist/esm/icons/rh-u
 import {
   AgenticRunCondition,
   AgenticRunK8s,
+  canStopRun,
   derivePhaseFromConditions,
+  isCancelledByUser,
+  isRunStopping,
   LightspeedAgenticRunGVK,
   LightspeedAgenticRunModel,
 } from '../../models/agenticrun';
+import { useStopRunAccess, useStopRunMutation } from '../../hooks/useStopRun';
 import { RUN_LABEL_SOURCE } from '../../constants';
 import { compareTokenUsage, formatTokenCell } from '../../utils/token-utils';
 import AgenticLayout from '../AgenticLayout';
 import { ConfirmationModal } from '../ConfirmationModal';
 import PreviewBadge from '../PreviewBadge';
+import { StopRunButton } from './StopRunButton';
+import { StopRunModal } from './StopRunModal';
 import AgenticCapabilitiesToggle from './AgenticCapabilitiesToggle';
 import { RunPhaseLabel } from './detail/RunPhaseLabel';
 
@@ -116,6 +124,91 @@ const FilteredEmptyMsg: React.FC = () => {
   );
 };
 
+type RunRowContentProps = RowProps<AgenticRunK8s> & {
+  canDelete: boolean;
+  onDelete: (obj: AgenticRunK8s) => void;
+  onStop: (obj: AgenticRunK8s) => void;
+  showTargetCluster: boolean;
+};
+
+const RunRowContent: React.FC<RunRowContentProps> = ({
+  activeColumnIDs,
+  canDelete,
+  obj,
+  onDelete,
+  onStop,
+  showTargetCluster,
+}) => {
+  const { t } = useTranslation('plugin__lightspeed-agentic-console-plugin');
+  const [canStopAccess, canStopLoading] = useStopRunAccess(obj.metadata.namespace);
+  const conditions = obj.status?.conditions as AgenticRunCondition[];
+  const phase = derivePhaseFromConditions(conditions);
+  const canStopByPhase = canStopRun(obj);
+  const stopping = isRunStopping(conditions);
+  const stoppedByUser = phase === 'Failed' && !stopping && isCancelledByUser(conditions);
+  const triggerDomain = getTriggerDomain(obj);
+  const detailPath = `/lightspeed/runs/${obj.metadata.namespace}/${obj.metadata.name}`;
+
+  return (
+    <>
+      <TableData activeColumnIDs={activeColumnIDs} id="name">
+        <ResourceIcon groupVersionKind={LightspeedAgenticRunGVK} />{' '}
+        <Link to={detailPath}>{obj.metadata.name}</Link>
+      </TableData>
+      {showTargetCluster && (
+        <TableData activeColumnIDs={activeColumnIDs} id="target-cluster">
+          {getTargetCluster(obj) || '-'}
+        </TableData>
+      )}
+      <TableData activeColumnIDs={activeColumnIDs} id="trigger-domain">
+        {triggerDomain ? <Label variant="outline">{triggerDomain}</Label> : '-'}
+      </TableData>
+      <TableData activeColumnIDs={activeColumnIDs} id="phase">
+        <RunPhaseLabel phase={phase} stopping={stopping} />
+        {stoppedByUser && (
+          <>
+            <br />
+            <Content component={ContentVariants.small}>{t('Stopped by user')}</Content>
+          </>
+        )}
+      </TableData>
+      <TableData activeColumnIDs={activeColumnIDs} id="tokens">
+        {formatTokenCell(obj)}
+      </TableData>
+      <TableData activeColumnIDs={activeColumnIDs} id="age">
+        <Timestamp timestamp={obj.metadata.creationTimestamp} />
+      </TableData>
+      <TableData activeColumnIDs={activeColumnIDs} className="pf-v6-c-table__action" id="">
+        <Flex
+          alignItems={{ default: 'alignItemsCenter' }}
+          flexWrap={{ default: 'nowrap' }}
+          justifyContent={{ default: 'justifyContentFlexEnd' }}
+          spaceItems={{ default: 'spaceItemsSm' }}
+        >
+          {canStopByPhase && (
+            <FlexItem>
+              <StopRunButton
+                canStop={canStopAccess}
+                canStopLoading={canStopLoading}
+                isCompact
+                onClick={() => {
+                  if (canStopAccess && !canStopLoading && canStopByPhase) {
+                    onStop(obj);
+                  }
+                }}
+                phase={phase}
+              />
+            </FlexItem>
+          )}
+          <FlexItem>
+            <RunKebab canDelete={canDelete} obj={obj} onDelete={onDelete} />
+          </FlexItem>
+        </Flex>
+      </TableData>
+    </>
+  );
+};
+
 const RunListPage: React.FC = () => {
   const { t } = useTranslation('plugin__lightspeed-agentic-console-plugin');
   const navigate = useNavigate();
@@ -135,6 +228,55 @@ const RunListPage: React.FC = () => {
   const [deleteTarget, setDeleteTarget] = React.useState<AgenticRunK8s | null>(null);
   const [deleteError, setDeleteError] = React.useState('');
   const [deleteInProgress, setDeleteInProgress] = React.useState(false);
+
+  const { clearStopError, stopError, stopInProgress, stopRun } = useStopRunMutation();
+  const [stopTarget, setStopTarget] = React.useState<{
+    name: string;
+    namespace: string;
+    uid?: string;
+  } | null>(null);
+  const currentStopTarget = React.useMemo(() => {
+    if (!stopTarget) {
+      return undefined;
+    }
+    const watchedTarget = (runs ?? []).find(
+      (run) =>
+        run.metadata.name === stopTarget.name &&
+        run.metadata.namespace === stopTarget.namespace &&
+        run.metadata.uid === stopTarget.uid,
+    );
+    return watchedTarget && canStopRun(watchedTarget) ? watchedTarget : undefined;
+  }, [runs, stopTarget]);
+
+  const openStopModal = React.useCallback(
+    (obj: AgenticRunK8s) => {
+      clearStopError();
+      setStopTarget({
+        name: obj.metadata.name,
+        namespace: obj.metadata.namespace,
+        uid: obj.metadata.uid,
+      });
+    },
+    [clearStopError],
+  );
+
+  const handleStop = React.useCallback(async () => {
+    if (!currentStopTarget || !canStopRun(currentStopTarget)) {
+      return;
+    }
+    const success = await stopRun(currentStopTarget);
+    if (success) {
+      setStopTarget(null);
+    }
+  }, [currentStopTarget, stopRun]);
+
+  React.useEffect(() => {
+    if (stopTarget && !currentStopTarget) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setStopTarget(null);
+      clearStopError();
+    }
+  }, [clearStopError, currentStopTarget, stopTarget]);
 
   const handleDelete = React.useCallback(async () => {
     if (!deleteTarget) {
@@ -203,40 +345,16 @@ const RunListPage: React.FC = () => {
   );
 
   const RunRow = React.useCallback<React.FC<RowProps<AgenticRunK8s>>>(
-    ({ activeColumnIDs, obj }) => {
-      const triggerDomain = getTriggerDomain(obj);
-      const phase = derivePhaseFromConditions(obj.status?.conditions as AgenticRunCondition[]);
-      const detailPath = `/lightspeed/runs/${obj.metadata.namespace}/${obj.metadata.name}`;
-      return (
-        <>
-          <TableData activeColumnIDs={activeColumnIDs} id="name">
-            <ResourceIcon groupVersionKind={LightspeedAgenticRunGVK} />{' '}
-            <Link to={detailPath}>{obj.metadata.name}</Link>
-          </TableData>
-          {showTargetCluster && (
-            <TableData activeColumnIDs={activeColumnIDs} id="target-cluster">
-              {getTargetCluster(obj) || '-'}
-            </TableData>
-          )}
-          <TableData activeColumnIDs={activeColumnIDs} id="trigger-domain">
-            {triggerDomain ? <Label variant="outline">{triggerDomain}</Label> : '-'}
-          </TableData>
-          <TableData activeColumnIDs={activeColumnIDs} id="phase">
-            <RunPhaseLabel phase={phase} />
-          </TableData>
-          <TableData activeColumnIDs={activeColumnIDs} id="tokens">
-            {formatTokenCell(obj)}
-          </TableData>
-          <TableData activeColumnIDs={activeColumnIDs} id="age">
-            <Timestamp timestamp={obj.metadata.creationTimestamp} />
-          </TableData>
-          <TableData activeColumnIDs={activeColumnIDs} className="pf-v6-c-table__action" id="">
-            <RunKebab canDelete={canDelete} obj={obj} onDelete={setDeleteTarget} />
-          </TableData>
-        </>
-      );
-    },
-    [canDelete, showTargetCluster],
+    (props) => (
+      <RunRowContent
+        {...props}
+        canDelete={canDelete}
+        onDelete={setDeleteTarget}
+        onStop={openStopModal}
+        showTargetCluster={showTargetCluster}
+      />
+    ),
+    [canDelete, openStopModal, showTargetCluster],
   );
 
   const filters: RowFilter<AgenticRunK8s>[] = React.useMemo(() => {
@@ -328,6 +446,24 @@ const RunListPage: React.FC = () => {
         />
       </ListPageBody>
 
+      <StopRunModal
+        error={stopError}
+        isExecuting={
+          currentStopTarget
+            ? derivePhaseFromConditions(
+                currentStopTarget.status?.conditions as AgenticRunCondition[],
+              ) === 'Executing'
+            : false
+        }
+        isLoading={stopInProgress}
+        isOpen={stopTarget !== null && currentStopTarget !== undefined}
+        onClose={() => {
+          setStopTarget(null);
+          clearStopError();
+        }}
+        onConfirm={handleStop}
+        runName={currentStopTarget?.metadata.name}
+      />
       <ConfirmationModal
         actionLabel={t('Delete')}
         actionVariant="danger"

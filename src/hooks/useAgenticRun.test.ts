@@ -810,3 +810,110 @@ describe('mapToAgenticRunView failureReason precedence', () => {
     expect(view?.failureReason).toBeUndefined();
   });
 });
+
+describe('mapToAgenticRunView stop state', () => {
+  const t = ((key: string) => key) as unknown as Parameters<typeof mapToAgenticRunView>[6];
+  const makeAnalysis = (failureReason?: string): AnalysisResultK8s =>
+    ({
+      apiVersion: 'agentic.openshift.io/v1alpha1',
+      kind: 'AnalysisResult',
+      metadata: { name: 'analysis-1', namespace: 'default' },
+      spec: { agenticRunName: 'run-1' },
+      status: { ...(failureReason ? { failureReason } : {}) },
+    }) as AnalysisResultK8s;
+
+  type RunSteps = NonNullable<AgenticRunK8s['status']>['steps'];
+
+  const makeRun = (
+    conditions: AgenticRunCondition[],
+    options: { cancelled?: boolean; steps?: RunSteps } = {},
+  ): AgenticRunK8s =>
+    ({
+      apiVersion: 'agentic.openshift.io/v1alpha1',
+      kind: 'AgenticRun',
+      metadata: { name: 'run-1', namespace: 'default' },
+      spec: { request: 'Fix alert', cancelled: options.cancelled },
+      status: { conditions, steps: options.steps },
+    }) as AgenticRunK8s;
+
+  const map = (run: AgenticRunK8s, analysis?: AnalysisResultK8s, execution?: ExecutionResultK8s) =>
+    mapToAgenticRunView(run, analysis, execution, undefined, undefined, undefined, t);
+
+  test('shows the cancellation cause instead of stale result failure text only for the effective Failed condition', () => {
+    const run = makeRun([
+      makeCondition('Analyzed', 'True'),
+      makeCondition('Executed', 'False', 'CancelledByUser'),
+    ]);
+
+    expect(map(run, makeAnalysis('Stale analysis failure'))?.failureReason).toBe('Stopped by user');
+  });
+
+  test('keeps the normal result failure priority when a lower-precedence condition says CancelledByUser', () => {
+    const run = makeRun([
+      makeCondition('Executed', 'False', 'ExecutionFailed'),
+      makeCondition('Analyzed', 'False', 'CancelledByUser'),
+    ]);
+
+    const view = map(run, makeAnalysis('Stale analysis failure'));
+    expect(view?.phase).toBe('Failed');
+    expect(view?.failureReason).toBe('Stale analysis failure');
+  });
+
+  test('does not render a final failure reason while Stopping=True', () => {
+    const run = makeRun([
+      makeCondition('Executed', 'False', 'ExecutionFailed'),
+      makeCondition('Stopping', 'True'),
+    ]);
+
+    const view = map(run, makeAnalysis('Execution failed'));
+    expect(view?.phase).toBe('Failed');
+    expect(view?.stopping).toBe(true);
+    expect(view?.failureReason).toBeUndefined();
+  });
+
+  test('keeps a recorded non-cancellation failure visible when spec.cancelled remains true', () => {
+    const run = makeRun([makeCondition('Analyzed', 'False', 'AnalysisFailed')], {
+      cancelled: true,
+    });
+
+    const view = map(run, makeAnalysis('Analysis failed'));
+    expect(view?.stopPending).toBe(true);
+    expect(view?.stopping).toBe(false);
+    expect(view?.failureReason).toBe('Analysis failed');
+  });
+
+  test('marks shutdown pending for a retained sandbox in any step with a pending stop', () => {
+    const run = makeRun([makeCondition('Analyzed', 'Unknown')], {
+      cancelled: true,
+      steps: { escalation: { sandbox: { claimName: 'sandbox-1' } } },
+    });
+
+    const view = map(run);
+    expect(view?.stopping).toBe(false);
+    expect(view?.stopPending).toBe(true);
+    expect(view?.sandboxShutdownPending).toBe(true);
+  });
+
+  test('marks shutdown pending for final user cancellation or emergency stop with a sandbox', () => {
+    const sandboxSteps: RunSteps = { verification: { sandbox: { claimName: 'sandbox-1' } } };
+    const cancelled = makeRun([makeCondition('Executed', 'False', 'CancelledByUser')], {
+      steps: sandboxSteps,
+    });
+    const emergency = makeRun([makeCondition('EmergencyStopped', 'True')], {
+      steps: sandboxSteps,
+    });
+
+    expect(map(cancelled)?.sandboxShutdownPending).toBe(true);
+    expect(map(cancelled)?.failureReason).toBe('Stopped by user');
+    expect(map(emergency)?.phase).toBe('EmergencyStopped');
+    expect(map(emergency)?.failureReason).not.toBe('Stopped by user');
+    expect(map(emergency)?.sandboxShutdownPending).toBe(true);
+  });
+
+  test('does not signal sandbox shutdown without a retained sandbox reference', () => {
+    const run = makeRun([makeCondition('Analyzed', 'Unknown')], { cancelled: true });
+
+    expect(map(run)?.stopPending).toBe(true);
+    expect(map(run)?.sandboxShutdownPending).toBe(false);
+  });
+});

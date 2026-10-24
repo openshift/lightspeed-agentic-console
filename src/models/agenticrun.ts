@@ -447,6 +447,7 @@ export type LightspeedAgenticRun = {
     execution?: AgenticRunStep;
     verification?: AgenticRunStep;
     revisionFeedback?: string;
+    cancelled?: boolean;
   };
   status?: AgenticRunStatus;
 };
@@ -638,18 +639,55 @@ export const isNoActionRequired = (conditions?: AgenticRunCondition[]): boolean 
   return analyzed?.status === 'True' && analyzed.reason === 'NoActionRequired';
 };
 
-// Returns a human-readable reason for a Failed run, taken from the failing
-// condition in the same precedence order derivePhaseFromConditions uses.
-export const deriveFailureReason = (conditions?: AgenticRunCondition[]): string | undefined => {
+export const isRunStopping = (conditions?: AgenticRunCondition[]): boolean =>
+  conditions?.some((condition) => condition.type === 'Stopping' && condition.status === 'True') ??
+  false;
+
+export const isRunStopPending = (run?: LightspeedAgenticRun): boolean =>
+  run?.spec?.cancelled === true || isRunStopping(run?.status?.conditions);
+
+export const canStopRun = (run?: LightspeedAgenticRun): boolean => {
+  if (!run || isRunStopPending(run)) {
+    return false;
+  }
+
+  switch (derivePhaseFromConditions(run.status?.conditions)) {
+    case 'Analyzing':
+    case 'Executing':
+    case 'Verifying':
+    case 'Escalating':
+      return true;
+    default:
+      return false;
+  }
+};
+
+const FAILURE_CONDITION_PRECEDENCE = ['Escalated', 'Verified', 'Executed', 'Analyzed'] as const;
+
+// Returns the effective failing condition using the same precedence as phase derivation.
+const getEffectiveFailureCondition = (
+  conditions?: AgenticRunCondition[],
+): AgenticRunCondition | undefined => {
   if (!conditions?.length) {
     return undefined;
   }
 
-  const get = (type: string) => conditions.find((c) => c.type === type);
-  const failed = ['Escalated', 'Verified', 'Executed', 'Analyzed']
-    .map((type) => get(type))
-    .find((c) => c?.status === 'False');
+  for (const type of FAILURE_CONDITION_PRECEDENCE) {
+    const condition = conditions.find((candidate) => candidate.type === type);
+    if (condition?.status === 'False') {
+      return condition;
+    }
+  }
+  return undefined;
+};
 
+// Checks only the effective failure reason; callers gate it on the derived Failed phase.
+export const isCancelledByUser = (conditions?: AgenticRunCondition[]): boolean =>
+  getEffectiveFailureCondition(conditions)?.reason === 'CancelledByUser';
+
+// Returns a human-readable reason for a Failed run. Callers gate this on the derived phase.
+export const deriveFailureReason = (conditions?: AgenticRunCondition[]): string | undefined => {
+  const failed = getEffectiveFailureCondition(conditions);
   if (!failed) {
     return undefined;
   }
