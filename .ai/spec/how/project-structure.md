@@ -4,14 +4,16 @@
 
 | File/Directory | Key Symbols | Responsibility |
 |---|---|---|
-| `src/models/agenticrun.ts` | All K8sModel definitions, GVK constants, CRD types, `derivePhaseFromConditions`, `getPhaseDisplay` | Central type definitions and phase logic |
+| `src/models/agenticrun.ts` | All K8sModel definitions, GVK constants, CRD types, `derivePhaseFromConditions`, `getPhaseDisplay`, `isRunStopping`, `isRunStopPending`, `canStopRun`, `isCancelledByUser` | Central type definitions and phase/cancellation logic |
 | `src/utils/approval.ts` | `findStage`, `getStageStatus`, `stageNeedsApproval`, `buildApprovalPatch` | Pure functions for approval logic |
 | `src/utils/markdown.ts` | `renderMarkdown`, `renderMarkdownInline` | Low-level sanitized markdown rendering (marked + DOMPurify). `renderMarkdown` emits block HTML via `marked.parse`; `renderMarkdownInline` emits inline HTML via `marked.parseInline`. All links are hardened with `target="_blank" rel="noopener noreferrer"`. Prefer `MarkdownContent` component over direct calls. |
 | `src/utils/agenticrun-utils.ts` | `buildPodLogUrl`, `getOutcomeStatus`, `getReversibilityColor` | Helpers for pod log URLs, outcome status mapping, reversibility colors |
 | `src/utils/remediation-plan.ts` | `downloadRemediationOption` | Downloads a remediation option as a JSON file via programmatic anchor click |
 | `src/utils/rbac-utils.ts` | `flattenRbacRules`, `resolveKind`, `isWriteVerb`, `hasWriteVerb`, `formatResource`, `summarizeWritePermissions`, `countNamespaceRules`, `countClusterRules`, `ScopedPermissionRule` | Flattens the grouped `namespaceScoped`/`clusterScoped` RBAC wire contract into one ordered rule list and derives write-verb summaries/counts for `RequiredPermissions` |
-| `src/components/runs/RunListPage.tsx` | `RunListPage` | Run list with virtualized table (conditional target-cluster, trigger-domain, phase, tokens, age, kebab columns), phase + trigger-domain filters, and per-row delete |
-| `src/components/runs/RunDetailPage.tsx` | `RunDetailPage` | Section-based run detail page with conditional target-cluster header badge and sticky action toolbar, delegates to `detail/` subcomponents |
+| `src/components/runs/RunListPage.tsx` | `RunListPage` | Run list with virtualized table (conditional target-cluster, trigger-domain, phase, tokens, age, and action columns), phase + trigger-domain filters, and per-row stop/delete |
+| `src/components/runs/RunDetailPage.tsx` | `RunDetailPage` | Section-based run detail page with conditional target-cluster header badge, Stop action, and sticky action toolbar; delegates to `detail/` subcomponents |
+| `src/components/runs/StopRunButton.tsx` | `StopRunButton` | Active-phase Stop control for list rows and run detail, with access-disabled state and denial tooltip |
+| `src/components/runs/StopRunModal.tsx` | `StopRunModal` | Stop confirmation modal with an execution-specific warning, loading state, and inline error |
 | `src/components/runs/RunDetailPage.css` | `.ols-plugin__action-toolbar` | Sticky bottom toolbar styling for triage actions |
 | `src/components/runs/detail/AnalysisSummary.tsx` | `AnalysisSummary` | Analysis request display, analysis loading/streaming state |
 | `src/components/runs/detail/RemediationOptionCard.tsx` | `RemediationOptionCard` | Expandable remediation option card with radio selection, embedded root cause analysis, and per-card download (readOnly mode) |
@@ -34,9 +36,10 @@
 | `src/components/CodeBlockWithClipboard.tsx` | `CodeBlockWithClipboard` | Reusable code block with clipboard copy button and expandable truncation for long content |
 | `src/components/ConfirmationModal.tsx` | `ConfirmationModal` | Reusable confirmation modal with confirm/cancel actions, loading state, and inline error display |
 | `src/components/StatusGuard.tsx` | `StatusGuard` | Loading/error/empty gate using PatternFly `ErrorState`; replaces internal console `StatusBox` |
-| `src/models/agenticrun-views.ts` | `AgenticRunView`, `RemediationOptionView`, `ExecutionView`, `VerificationView`, `EscalationView`, `SandboxView`, `TimelineEvent`, `TERMINAL_PHASES` | View-model types for the detail page (output of `useAgenticRun` mapping layer) |
+| `src/models/agenticrun-views.ts` | `AgenticRunView`, `RemediationOptionView`, `ExecutionView`, `VerificationView`, `EscalationView`, `SandboxView`, `TimelineEvent`, `TERMINAL_PHASES` | View-model types for detail, including `stopping`, `stopPending`, and `sandboxShutdownPending` lifecycle fields |
 | `src/constants.ts` | `RUN_NAMESPACE`, `RUN_LABEL_SOURCE`, `RESULT_LABEL_RUN` | Shared constants for K8s label keys and namespace |
-| `src/hooks/useAgenticRun.ts` | `useAgenticRun`, `mapRootCause`, `mapOption`, `mapExecution`, `mapVerification`, `mapEscalation`, `mapTimeline`, `filterLatest` | Fetches run + result CRs (including EscalationResult), maps API types → view types |
+| `src/hooks/useAgenticRun.ts` | `useAgenticRun`, `mapToAgenticRunView`, `mapRootCause`, `mapOption`, `mapExecution`, `mapVerification`, `mapEscalation`, `mapTimeline`, `filterLatest` | Fetches run + result CRs and maps API types to view types, including cancellation state |
+| `src/hooks/useStopRun.ts` | `useStopRunAccess`, `useStopRunMutation` | Namespaced run patch authorization and cancellation mutation |
 | `src/hooks/useExecutionLogActions.ts` | `useExecutionLogActions` | Parses execution actions from sandbox pod logs |
 | `src/hooks/useRetainedLogs.ts` | `useRetainedLogs`, `probeConfigMap`, `buildServiceProxyBase` | Fetches retained logs from OTEL Admin API via K8s service proxy; probes ConfigMap for availability |
 | `src/hooks/useSandboxLogStream.ts` | `useSandboxLogStream` | Streams audit lines from sandbox pod logs |

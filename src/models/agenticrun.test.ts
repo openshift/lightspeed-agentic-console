@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  canStopRun,
   deriveFailureReason,
   derivePhaseFromConditions,
   getPhaseDisplay,
+  isCancelledByUser,
   isNoActionRequired,
+  isRunStopPending,
+  isRunStopping,
 } from './agenticrun';
+import type { AgenticRunCondition, LightspeedAgenticRun } from './agenticrun';
 import { cond } from '../test-helpers';
 
 describe('derivePhaseFromConditions', () => {
@@ -219,5 +224,77 @@ describe('isNoActionRequired', () => {
 
   it('returns false when Analyzed condition is absent', () => {
     expect(isNoActionRequired(undefined)).toBe(false);
+  });
+});
+
+describe('run stop helpers', () => {
+  const makeRun = (
+    conditions?: AgenticRunCondition[],
+    cancelled?: boolean,
+  ): LightspeedAgenticRun => ({
+    apiVersion: 'agentic.openshift.io/v1alpha1',
+    kind: 'AgenticRun',
+    metadata: { name: 'test', namespace: 'default' },
+    spec: {
+      request: 'test request',
+      ...(cancelled === undefined ? {} : { cancelled }),
+    },
+    ...(conditions === undefined ? {} : { status: { conditions } }),
+  });
+
+  it('treats only Stopping=True as a stopping state', () => {
+    expect(isRunStopping(undefined)).toBe(false);
+    expect(isRunStopping([])).toBe(false);
+    expect(isRunStopping([cond('Stopping', 'False')])).toBe(false);
+    expect(isRunStopping([cond('Stopping', 'Unknown')])).toBe(false);
+    expect(isRunStopping([cond('Stopping', 'True')])).toBe(true);
+  });
+
+  it('matches cancellation to the effective failed condition by precedence', () => {
+    expect(isCancelledByUser(undefined)).toBe(false);
+    expect(isCancelledByUser([cond('Analyzed', 'False', 'CancelledByUser')])).toBe(true);
+    expect(
+      isCancelledByUser([
+        cond('Analyzed', 'False', 'CancelledByUser'),
+        cond('Verified', 'False', 'VerificationFailed'),
+      ]),
+    ).toBe(false);
+    expect(
+      isCancelledByUser([
+        cond('Verified', 'False', 'CancelledByUser'),
+        cond('Analyzed', 'False', 'AnalysisFailed'),
+      ]),
+    ).toBe(true);
+    expect(
+      isCancelledByUser([
+        cond('Verified', 'False', 'CancelledByUser'),
+        cond('Escalated', 'False', 'EscalationFailed'),
+      ]),
+    ).toBe(false);
+    expect(isCancelledByUser([cond('Stopping', 'True', 'CancelledByUser')])).toBe(false);
+  });
+
+  it('recognizes requested and operator-confirmed stop-pending states', () => {
+    expect(isRunStopPending(undefined)).toBe(false);
+    expect(isRunStopPending(makeRun(undefined, true))).toBe(true);
+    expect(isRunStopPending(makeRun([cond('Stopping', 'True')]))).toBe(true);
+    expect(isRunStopPending(makeRun([cond('Stopping', 'Unknown')], false))).toBe(false);
+  });
+
+  it('allows stopping only in active sandbox phases when no stop is pending', () => {
+    expect(canStopRun(undefined)).toBe(false);
+    expect(canStopRun(makeRun([cond('Analyzed', 'Unknown')]))).toBe(true);
+    expect(canStopRun(makeRun([cond('Executed', 'Unknown')]))).toBe(true);
+    expect(canStopRun(makeRun([cond('Verified', 'Unknown')]))).toBe(true);
+    expect(canStopRun(makeRun([cond('Escalated', 'Unknown')]))).toBe(true);
+    expect(canStopRun(makeRun([]))).toBe(false);
+    expect(canStopRun(makeRun([cond('Analyzed', 'True')]))).toBe(false);
+    expect(canStopRun(makeRun([cond('Analyzed', 'Unknown')], true))).toBe(false);
+    expect(canStopRun(makeRun([cond('Analyzed', 'Unknown'), cond('Stopping', 'True')]))).toBe(
+      false,
+    );
+    expect(
+      canStopRun(makeRun([cond('EmergencyStopped', 'True'), cond('Analyzed', 'Unknown')])),
+    ).toBe(false);
   });
 });

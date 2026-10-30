@@ -100,6 +100,9 @@ export interface EscalationView {
 
 export interface AgenticRunView {
   phase: AgenticRunPhase;
+  stopping?: boolean;
+  stopPending?: boolean;
+  sandboxShutdownPending?: boolean;
   request: string;
   source?: string;
   advisory?: boolean;
