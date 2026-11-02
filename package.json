@@ -70,7 +70,7 @@
     "stylelint-config-standard": "40.0.0",
     "typescript-eslint": "8.71.2",
     "vitest": "4.1.12",
-    "webpack-dev-server": "6.0.0"
+    "webpack-dev-server": "6.1.0"
   },
   "consolePlugin": {
     "name": "lightspeed-agentic-console-plugin",
