@@ -148,7 +148,7 @@ spec:
         steps:
           - name: run-playwright
             onError: continue
-            image: mcr.microsoft.com/playwright:v1.63.0-noble
+            image: mcr.microsoft.com/playwright:v1.64.1-noble
             computeResources:
               limits:
                 memory: 8Gi
@@ -200,6 +200,14 @@ spec:
               BASE_URL="https://$(oc get route console -n openshift-console -o jsonpath='{.spec.host}')"
               export BASE_URL
               npm ci --no-fund
+              # The base image carries a pinned Playwright browser set that can
+              # drift from the version resolved by npm ci. Install the browser
+              # build matching the installed @playwright/test so chromium.launch()
+              # never fails on a missing executable. The image only needs to
+              # provide the OS-level dependencies.
+              PLAYWRIGHT_VERSION=$(node -p "require('@playwright/test/package.json').version")
+              echo "Installed @playwright/test ${PLAYWRIGHT_VERSION}; ensuring matching browser binaries"
+              npx playwright install chromium
               # Global setup installs/reuses the bundle, patches the image and isolates controllers.
               npx playwright test 2>&1 | tee /workspace/artifacts/playwright.log
           - name: gather-cluster-resources
