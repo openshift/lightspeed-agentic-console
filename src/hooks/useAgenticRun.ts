@@ -7,7 +7,6 @@ import {
   useK8sWatchResource,
 } from '@openshift-console/dynamic-plugin-sdk';
 import { useTranslation } from 'react-i18next';
-import type { TFunction } from 'i18next';
 import {
   AgenticRunApprovalK8s,
   AgenticRunK8s,
@@ -33,6 +32,7 @@ import {
   VerificationResultGVK,
   VerificationResultK8s,
 } from '../models/agenticrun';
+import type { TFunction } from '../utils/agenticrun-utils';
 import { buildApprovalPatch, stageNeedsApproval } from '../utils/approval';
 import {
   AgenticRunView,

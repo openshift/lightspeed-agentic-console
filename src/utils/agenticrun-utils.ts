@@ -1,4 +1,6 @@
-import { TFunction } from 'i18next';
+import type { useTranslation } from 'react-i18next';
+
+export type TFunction = ReturnType<typeof useTranslation>[0];
 
 export const buildPodLogUrl = (
   namespace: string,
