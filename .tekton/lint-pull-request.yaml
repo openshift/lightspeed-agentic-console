@@ -1,0 +1,111 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  name: lightspeed-agentic-console-lint-on-pull-request
+  namespace: crt-nshift-lightspeed-tenant
+  annotations:
+    build.appstudio.openshift.io/repo: https://github.com/openshift/lightspeed-agentic-console?rev={{revision}}
+    build.appstudio.redhat.com/commit_sha: '{{revision}}'
+    build.appstudio.redhat.com/pull_request_number: '{{pull_request_number}}'
+    pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch == "main"
+    pipelinesascode.tekton.dev/cancel-in-progress: 'true'
+    pipelinesascode.tekton.dev/max-keep-runs: '3'
+  labels:
+    pipelines.appstudio.openshift.io/type: test
+spec:
+  params:
+    - name: source-url
+      value: '{{source_url}}'
+    - name: revision
+      value: '{{revision}}'
+  timeouts:
+    pipeline: 20m
+  taskRunTemplate:
+    serviceAccountName: build-pipeline-lightspeed-agentic-console
+  pipelineSpec:
+    params:
+      - name: source-url
+        type: string
+      - name: revision
+        type: string
+    tasks:
+      - name: lint
+        params:
+          - name: source-url
+            value: $(params.source-url)
+          - name: revision
+            value: $(params.revision)
+        taskSpec:
+          params:
+            - name: source-url
+              type: string
+            - name: revision
+              type: string
+          volumes:
+            - name: work
+              emptyDir: {}
+          stepTemplate:
+            image: registry.access.redhat.com/ubi9/nodejs-22-minimal:latest
+            workingDir: /workspace
+            volumeMounts:
+              - name: work
+                mountPath: /workspace
+            env:
+              - name: HOME
+                value: /tmp
+          steps:
+            - name: checkout
+              env:
+                - name: SOURCE_URL
+                  value: $(params.source-url)
+                - name: REVISION
+                  value: $(params.revision)
+              script: |
+                #!/usr/bin/env bash
+                set -euo pipefail
+                # Public source: no GitHub credentials exposed to the test task.
+                # The nodejs-22-minimal image has neither git nor gzip (and
+                # packages cannot be installed without root): fetch the exact
+                # commit tarball from GitHub, decompress it with node's zlib,
+                # and extract it with tar.
+                mkdir -p /workspace/source
+                tarball_url="${SOURCE_URL/github.com/codeload.github.com}/tar.gz/${REVISION}"
+                curl --fail --silent --show-error --location --retry 3 \
+                  "$tarball_url" --output /tmp/source.tar.gz
+                node -e 'const zlib=require("node:zlib"),fs=require("node:fs");fs.writeFileSync("/tmp/source.tar",zlib.gunzipSync(fs.readFileSync("/tmp/source.tar.gz")))'
+                tar --extract --file /tmp/source.tar --strip-components=1 --directory /workspace/source
+                # Tarballs carry no git metadata; verify the checkout landed.
+                test -f /workspace/source/package.json
+            - name: lint-and-typecheck
+              # Do not declare the clone destination as a workingDir: Tekton
+              # precreates working directories before checkout, potentially
+              # leaving source owned by a different user.
+              script: |
+                #!/usr/bin/env bash
+                set -euo pipefail
+                cd /workspace/source
+                # The image bundles npm 10, but the repository lockfile
+                # requires npm >= 11.10: bootstrap the pinned npm without root.
+                npx -y 'npm@^11' ci
+                npm run lint
+                npm run type-check
+            - name: i18n
+              script: |
+                #!/usr/bin/env bash
+                set -euo pipefail
+                cd /workspace/source
+                # Regenerate locale catalogs and fail if the committed files
+                # are not up to date with the source strings. The minimal
+                # image has no git: compare a hash listing of the locales
+                # tree before and after regeneration instead.
+                find locales -type f -print0 | sort -z \
+                  | xargs -0 sha256sum > /tmp/locales.before
+                npm run i18n
+                find locales -type f -print0 | sort -z \
+                  | xargs -0 sha256sum > /tmp/locales.after
+                # (the minimal image ships neither diff nor cmp)
+                if [ "$(cat /tmp/locales.before)" != "$(cat /tmp/locales.after)" ]; then
+                  echo "locales/ is not up to date: run 'npm run i18n' and commit the result" >&2
+                  cat /tmp/locales.after
+                  exit 1
+                fi
