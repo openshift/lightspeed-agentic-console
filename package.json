@@ -4,6 +4,10 @@
   "description": "OpenShift Lightspeed Agentic Console Plugin — runs UI for AI-driven cluster operations",
   "private": true,
   "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22.22.2",
+    "npm": ">=11.10.0"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/openshift/lightspeed-agentic-console.git"

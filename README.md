@@ -24,9 +24,9 @@ The plugin consumes resources from the `agentic.openshift.io/v1alpha1` API group
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/en/) 22.18+
-- [npm](https://www.npmjs.com/) 10+
 - An OpenShift 4.23+ cluster with the Lightspeed Agentic operator installed
+- [Node.js](https://nodejs.org) and [npm](https://www.npmjs.com) to build and run (see engines in
+  package.json for the minimum versions)
 - [oc](https://console.redhat.com/openshift/downloads) CLI (for local console development)
 - [Docker](https://www.docker.com) or [podman 3.2.0+](https://podman.io) (for running console locally)
 
