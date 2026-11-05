@@ -39,10 +39,14 @@
         "@patternfly/*",
         "eslint",
         "js-yaml",
-        "node",
         "vitest"
       ],
       "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
+      "matchPackageNames": ["node", "npm"],
+      "matchDepTypes": ["engines"],
       "enabled": false
     },
     {
