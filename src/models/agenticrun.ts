@@ -528,36 +528,35 @@ export type EscalationResultCR = {
 // Display helpers
 
 export type PhaseDisplay = {
-  color: 'blue' | 'green' | 'grey' | 'orange' | 'red' | 'teal';
   label: string;
 };
 
 export const getPhaseDisplay = (phase?: AgenticRunPhase | string): PhaseDisplay => {
   switch (phase) {
     case 'Analyzing':
-      return { color: 'blue', label: 'Analyzing' };
+      return { label: 'Analyzing' };
     case 'Completed':
-      return { color: 'green', label: 'Completed' };
+      return { label: 'Completed' };
     case 'Denied':
-      return { color: 'red', label: 'Denied' };
+      return { label: 'Denied' };
     case 'EmergencyStopped':
-      return { color: 'red', label: 'Emergency stopped' };
+      return { label: 'Emergency stopped' };
     case 'Escalated':
-      return { color: 'orange', label: 'Escalated' };
+      return { label: 'Escalated' };
     case 'Escalating':
-      return { color: 'orange', label: 'Escalating' };
+      return { label: 'Escalating' };
     case 'Executing':
-      return { color: 'teal', label: 'Executing' };
+      return { label: 'Executing' };
     case 'Failed':
-      return { color: 'red', label: 'Failed' };
+      return { label: 'Failed' };
     case 'Pending':
-      return { color: 'grey', label: 'Pending' };
+      return { label: 'Pending' };
     case 'Proposed':
-      return { color: 'blue', label: 'Proposed' };
+      return { label: 'Proposed' };
     case 'Verifying':
-      return { color: 'teal', label: 'Verifying' };
+      return { label: 'Verifying' };
     default:
-      return { color: 'grey', label: phase || 'Unknown' };
+      return { label: phase || 'Unknown' };
   }
 };
 

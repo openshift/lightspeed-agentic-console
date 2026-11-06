@@ -178,33 +178,27 @@ describe('deriveFailureReason', () => {
 
 describe('getPhaseDisplay', () => {
   it.each([
-    ['Pending', { color: 'grey', label: 'Pending' }],
-    ['Analyzing', { color: 'blue', label: 'Analyzing' }],
-    ['Proposed', { color: 'blue', label: 'Proposed' }],
-    ['Executing', { color: 'teal', label: 'Executing' }],
-    ['Verifying', { color: 'teal', label: 'Verifying' }],
-    ['Escalating', { color: 'orange', label: 'Escalating' }],
-    ['Completed', { color: 'green', label: 'Completed' }],
-    ['Failed', { color: 'red', label: 'Failed' }],
-    ['Denied', { color: 'red', label: 'Denied' }],
-    ['Escalated', { color: 'orange', label: 'Escalated' }],
-    ['EmergencyStopped', { color: 'red', label: 'Emergency stopped' }],
+    ['Pending', { label: 'Pending' }],
+    ['Analyzing', { label: 'Analyzing' }],
+    ['Proposed', { label: 'Proposed' }],
+    ['Executing', { label: 'Executing' }],
+    ['Verifying', { label: 'Verifying' }],
+    ['Escalating', { label: 'Escalating' }],
+    ['Completed', { label: 'Completed' }],
+    ['Failed', { label: 'Failed' }],
+    ['Denied', { label: 'Denied' }],
+    ['Escalated', { label: 'Escalated' }],
+    ['EmergencyStopped', { label: 'Emergency stopped' }],
   ])('returns correct display for %s', (phase, expected) => {
     expect(getPhaseDisplay(phase)).toEqual(expected);
   });
 
-  it('returns grey with phase as label for unknown phases', () => {
-    expect(getPhaseDisplay('SomeUnknownPhase')).toEqual({
-      color: 'grey',
-      label: 'SomeUnknownPhase',
-    });
+  it('returns phase as label for unknown phases', () => {
+    expect(getPhaseDisplay('SomeUnknownPhase')).toEqual({ label: 'SomeUnknownPhase' });
   });
 
-  it('returns grey with Unknown label when phase is undefined', () => {
-    expect(getPhaseDisplay(undefined)).toEqual({
-      color: 'grey',
-      label: 'Unknown',
-    });
+  it('returns Unknown label when phase is undefined', () => {
+    expect(getPhaseDisplay(undefined)).toEqual({ label: 'Unknown' });
   });
 });
 
