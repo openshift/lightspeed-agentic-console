@@ -11,8 +11,8 @@ import RhUiWarningFillIcon from '@patternfly/react-icons/dist/esm/icons/rh-ui-wa
 import type { ComponentClass, FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { getPhaseDisplay } from '../../../models/agenticrun';
 import { AgenticRunPhase } from '../../../models/agenticrun-views';
+import { getPhaseLabel } from '../../../utils/agenticrun-utils';
 
 import './RunPhaseLabel.css';
 
@@ -44,7 +44,6 @@ const STATUS_ICON_COLOR_CLASS: Partial<Record<AgenticRunPhase, string>> = {
 
 export const RunPhaseLabel: FC<{ phase: AgenticRunPhase }> = ({ phase }) => {
   const { t } = useTranslation('plugin__lightspeed-agentic-console-plugin');
-  const { label } = getPhaseDisplay(phase);
   const Icon = STATUS_ICON[phase];
   const iconColorClass = STATUS_ICON_COLOR_CLASS[phase];
 
@@ -55,7 +54,7 @@ export const RunPhaseLabel: FC<{ phase: AgenticRunPhase }> = ({ phase }) => {
           <Icon />
         </span>
       ) : null}
-      {t(label)}
+      {getPhaseLabel(phase, t)}
     </span>
   );
 };

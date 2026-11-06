@@ -1,5 +1,7 @@
 import type { useTranslation } from 'react-i18next';
 
+import type { AgenticRunPhase } from '../models/agenticrun';
+
 export type TFunction = ReturnType<typeof useTranslation>[0];
 
 export const buildPodLogUrl = (
@@ -83,5 +85,34 @@ export const getStageLabel = (stageType: string, t: TFunction): string => {
       return t('Escalation');
     default:
       return stageType;
+  }
+};
+
+export const getPhaseLabel = (phase: AgenticRunPhase, t: TFunction): string => {
+  switch (phase) {
+    case 'Analyzing':
+      return t('Analyzing');
+    case 'Completed':
+      return t('Completed');
+    case 'Denied':
+      return t('Denied');
+    case 'EmergencyStopped':
+      return t('Emergency stopped');
+    case 'Escalated':
+      return t('Escalated');
+    case 'Escalating':
+      return t('Escalating');
+    case 'Executing':
+      return t('Executing');
+    case 'Failed':
+      return t('Failed');
+    case 'Pending':
+      return t('Pending');
+    case 'Proposed':
+      return t('Proposed');
+    case 'Verifying':
+      return t('Verifying');
+    default:
+      return phase;
   }
 };

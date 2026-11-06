@@ -11,6 +11,7 @@ import {
   LightspeedApprovalPolicyModel,
   SandboxStepName,
 } from '../../models/agenticrun';
+import { getStageLabel } from '../../utils/agenticrun-utils';
 import ExecutionPolicyModal from './ExecutionPolicyModal';
 
 const STAGES: SandboxStepName[] = ['Analysis', 'Execution', 'Verification', 'Escalation'];
@@ -117,7 +118,7 @@ const ApprovalPolicy: React.FC = () => {
             data-test={`config-approval-row-${stage}`}
             key={stage}
           >
-            <span className="ols-plugin__config-approval-label">{t(stage)}</span>
+            <span className="ols-plugin__config-approval-label">{getStageLabel(stage, t)}</span>
             <ToggleGroup>
               <ToggleGroupItem
                 isSelected={stageValues[stage] === 'Manual'}
