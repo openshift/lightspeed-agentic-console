@@ -527,39 +527,6 @@ export type EscalationResultCR = {
 
 // Display helpers
 
-export type PhaseDisplay = {
-  label: string;
-};
-
-export const getPhaseDisplay = (phase?: AgenticRunPhase | string): PhaseDisplay => {
-  switch (phase) {
-    case 'Analyzing':
-      return { label: 'Analyzing' };
-    case 'Completed':
-      return { label: 'Completed' };
-    case 'Denied':
-      return { label: 'Denied' };
-    case 'EmergencyStopped':
-      return { label: 'Emergency stopped' };
-    case 'Escalated':
-      return { label: 'Escalated' };
-    case 'Escalating':
-      return { label: 'Escalating' };
-    case 'Executing':
-      return { label: 'Executing' };
-    case 'Failed':
-      return { label: 'Failed' };
-    case 'Pending':
-      return { label: 'Pending' };
-    case 'Proposed':
-      return { label: 'Proposed' };
-    case 'Verifying':
-      return { label: 'Verifying' };
-    default:
-      return { label: phase || 'Unknown' };
-  }
-};
-
 // SYNC: must match DerivePhase in lightspeed-agentic-operator/api/v1alpha1/agenticrun_types.go
 export const derivePhaseFromConditions = (conditions?: AgenticRunCondition[]): AgenticRunPhase => {
   if (!conditions?.length) {

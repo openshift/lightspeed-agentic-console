@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  deriveFailureReason,
-  derivePhaseFromConditions,
-  getPhaseDisplay,
-  isNoActionRequired,
-} from './agenticrun';
+import { deriveFailureReason, derivePhaseFromConditions, isNoActionRequired } from './agenticrun';
 import { cond } from '../test-helpers';
 
 describe('derivePhaseFromConditions', () => {
@@ -173,32 +168,6 @@ describe('deriveFailureReason', () => {
         cond('Verified', 'False', 'VerificationFailed', 'check failed'),
       ]),
     ).toBe('VerificationFailed: check failed');
-  });
-});
-
-describe('getPhaseDisplay', () => {
-  it.each([
-    ['Pending', { label: 'Pending' }],
-    ['Analyzing', { label: 'Analyzing' }],
-    ['Proposed', { label: 'Proposed' }],
-    ['Executing', { label: 'Executing' }],
-    ['Verifying', { label: 'Verifying' }],
-    ['Escalating', { label: 'Escalating' }],
-    ['Completed', { label: 'Completed' }],
-    ['Failed', { label: 'Failed' }],
-    ['Denied', { label: 'Denied' }],
-    ['Escalated', { label: 'Escalated' }],
-    ['EmergencyStopped', { label: 'Emergency stopped' }],
-  ])('returns correct display for %s', (phase, expected) => {
-    expect(getPhaseDisplay(phase)).toEqual(expected);
-  });
-
-  it('returns phase as label for unknown phases', () => {
-    expect(getPhaseDisplay('SomeUnknownPhase')).toEqual({ label: 'SomeUnknownPhase' });
-  });
-
-  it('returns Unknown label when phase is undefined', () => {
-    expect(getPhaseDisplay(undefined)).toEqual({ label: 'Unknown' });
   });
 });
 
