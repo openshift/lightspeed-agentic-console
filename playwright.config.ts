@@ -19,7 +19,10 @@ export default defineConfig({
   testMatch: '**/*.spec.ts',
   timeout: 60_000,
   expect: {
-    timeout: 10_000,
+    // The console plugin page load (console bundle + plugin fetch + app-server
+    // proxy round-trips) can take longer than the Playwright default on a
+    // fresh CI cluster; 10s caused flakes right after navigation.
+    timeout: 30_000,
   },
   fullyParallel: false,
   forbidOnly: !!process.env.CI,

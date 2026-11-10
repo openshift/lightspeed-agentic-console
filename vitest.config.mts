@@ -9,7 +9,7 @@ export default defineConfig({
     // Testing on 2026-10-19, limiting to 8 workers didn't slow down the test execution
     maxWorkers: 8,
     setupFiles: ['./src/test-setup.ts'],
-    include: ['src/**/*.test.{ts,tsx}'],
+    include: ['src/**/*.test.{ts,tsx}', 'integration-tests/support/**/*.test.ts'],
   },
   resolve: {
     extensions: ['.ts', '.tsx', '.js', '.jsx'],
