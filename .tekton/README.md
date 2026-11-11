@@ -16,6 +16,14 @@ pipeline fails if the committed `locales/` tree differs, so stale
 translations cannot merge. The i18n regeneration is deterministic on a
 clean checkout (verified locally) and requires no network beyond `npm ci`.
 
+Each pair of PipelineRuns shares a single Pipeline definition in
+`pipelines/lint-pipeline.yaml` and
+`pipelines/unit-test-coverage-pipeline.yaml`, referenced via the Tekton
+git resolver at the event's exact revision. Only the event-specific
+metadata (trigger, branch, PR number, job type, cancel policy) differs
+between the pull-request and push PipelineRuns; PaC requires one
+PipelineRun per event type.
+
 The public source repository is checked out at the event's exact revision.
 The existing `npm run test-coverage` target runs only the vitest unit suite
 (`src/**/*.test.{ts,tsx}`) and never the Playwright E2E/integration tests.
