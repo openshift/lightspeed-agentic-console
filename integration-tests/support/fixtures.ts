@@ -99,7 +99,23 @@ export const gatherClusterArtifacts = (): void => {
 export const test = base.extend<{
   captureConsoleLogs: void;
   dismissGuidedTour: void;
+  dismissChatDrawer: void;
 }>({
+  // The OLS chat plugin can pop its drawer open at any time (e.g. the welcome
+  // notification on a fresh session). The expanded drawer overlays the page
+  // content and swallows clicks meant for elements underneath it, so collapse
+  // it whenever it appears. See PR #340 CI failure: the run-link click in
+  // 02-import-run.spec.ts landed on the chat overlay and never navigated.
+  dismissChatDrawer: [
+    async ({ page }, use) => {
+      const chatRegion = page.getByRole('region', { name: 'Red Hat OpenShift Lightspeed' });
+      await page.addLocatorHandler(chatRegion.getByRole('button', { name: 'Minimize' }), (btn) =>
+        btn.click(),
+      );
+      await use();
+    },
+    { auto: true },
+  ],
   dismissGuidedTour: [
     async ({ page }, use) => {
       await page.addLocatorHandler(
