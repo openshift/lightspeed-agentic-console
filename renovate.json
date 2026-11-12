@@ -38,8 +38,7 @@
         "@types/react-dom",
         "@patternfly/*",
         "eslint",
-        "js-yaml",
-        "vitest"
+        "js-yaml"
       ],
       "matchUpdateTypes": ["major"],
       "enabled": false
