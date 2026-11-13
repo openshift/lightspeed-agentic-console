@@ -42,10 +42,13 @@ const STATUS_ICON_COLOR_CLASS: Partial<Record<AgenticRunPhase, string>> = {
   Pending: 'ols-plugin__run-phase-icon--subtle',
 };
 
-export const RunPhaseLabel: FC<{ phase: AgenticRunPhase }> = ({ phase }) => {
+export const RunPhaseLabel: FC<{ phase: AgenticRunPhase; stopping?: boolean }> = ({
+  phase,
+  stopping = false,
+}) => {
   const { t } = useTranslation('plugin__lightspeed-agentic-console-plugin');
-  const Icon = STATUS_ICON[phase];
-  const iconColorClass = STATUS_ICON_COLOR_CLASS[phase];
+  const Icon = stopping ? RhUiInProgressIcon : STATUS_ICON[phase];
+  const iconColorClass = stopping ? undefined : STATUS_ICON_COLOR_CLASS[phase];
 
   return (
     <span className="ols-plugin__run-phase">
@@ -54,7 +57,7 @@ export const RunPhaseLabel: FC<{ phase: AgenticRunPhase }> = ({ phase }) => {
           <Icon />
         </span>
       ) : null}
-      {getPhaseLabel(phase, t)}
+      {stopping ? t('Stopping') : getPhaseLabel(phase, t)}
     </span>
   );
 };

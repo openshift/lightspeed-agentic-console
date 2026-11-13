@@ -2,9 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { DocumentTitle, ResourceIcon, Timestamp } from '@openshift-console/dynamic-plugin-sdk';
 import {
-  ActionList,
-  ActionListGroup,
-  ActionListItem,
   Alert,
   Breadcrumb,
   BreadcrumbItem,
@@ -26,7 +23,6 @@ import {
   Title,
 } from '@patternfly/react-core';
 import {
-  DownloadIcon,
   ExclamationCircleIcon,
   InfoCircleIcon,
   OutlinedQuestionCircleIcon,
@@ -35,9 +31,8 @@ import type { FC, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 import { useAgenticRun } from '../../hooks/useAgenticRun';
-import { ApprovalStageType, LightspeedAgenticRunGVK } from '../../models/agenticrun';
-import type { AgenticRunView } from '../../models/agenticrun-views';
-import { TERMINAL_PHASES } from '../../models/agenticrun-views';
+import { ApprovalStageType, canStopRun, LightspeedAgenticRunGVK } from '../../models/agenticrun';
+import { type AgenticRunView, TERMINAL_PHASES } from '../../models/agenticrun-views';
 import { getReversibilityDescription, getReversibilityText } from '../../utils/agenticrun-utils';
 import { downloadRemediationOption } from '../../utils/remediation-plan';
 import AgenticLayout from '../AgenticLayout';
@@ -56,8 +51,8 @@ import { RunTimeline } from './detail/RunTimeline';
 import { StageApprovalBanner } from './detail/StageApprovalBanner';
 import { StageInProgress } from './detail/StageInProgress';
 import { VerificationSummary } from './detail/VerificationSummary';
-
-import './RunDetailPage.css';
+import { RunActionToolbar } from './detail/RunActionToolbar';
+import { StopRunModal } from './StopRunModal';
 
 const RunDetailPage: FC = () => {
   const { t } = useTranslation('plugin__lightspeed-agentic-console-plugin');
@@ -82,7 +77,15 @@ const RunDetailPage: FC = () => {
     mutationInProgress,
     mutationError,
     clearMutationError,
+    canStop,
+    canStopLoading,
+    stopRun,
+    stopInProgress,
+    stopError,
+    clearStopError,
   } = useAgenticRun(name, namespace);
+
+  const canStopCurrentRun = canStopRun(run);
 
   const targetCluster = view?.targetCluster?.trim();
   const phaseKey = view?.phase ?? 'unknown';
@@ -112,6 +115,45 @@ const RunDetailPage: FC = () => {
 
   const [executeOptionIndex, setExecuteOptionIndex] = useState<number | null>(null);
   const [denyingStage, setDenyingStage] = useState<ApprovalStageType | null>(null);
+
+  const [isStopModalRequested, setIsStopModalRequested] = useState(false);
+  const [stopModalRunUid, setStopModalRunUid] = useState<string>();
+
+  const isStopModalOpen =
+    isStopModalRequested &&
+    canStop &&
+    !canStopLoading &&
+    canStopCurrentRun &&
+    stopModalRunUid === run?.metadata?.uid;
+
+  useEffect(() => {
+    if (isStopModalRequested && !isStopModalOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setIsStopModalRequested(false);
+      setStopModalRunUid(undefined);
+      clearStopError();
+    }
+  }, [clearStopError, isStopModalOpen, isStopModalRequested]);
+
+  const openStopModal = useCallback(() => {
+    if (!canStop || canStopLoading || !canStopRun(run)) {
+      return;
+    }
+    clearStopError();
+    setStopModalRunUid(run?.metadata?.uid);
+    setIsStopModalRequested(true);
+  }, [canStop, canStopLoading, clearStopError, run]);
+
+  const handleStop = useCallback(async () => {
+    if (!canStop || canStopLoading || !canStopRun(run) || stopModalRunUid !== run?.metadata?.uid) {
+      return;
+    }
+    const success = await stopRun();
+    if (success) {
+      setIsStopModalRequested(false);
+      setStopModalRunUid(undefined);
+    }
+  }, [canStop, canStopLoading, run, stopModalRunUid, stopRun]);
 
   const openExecuteModal = useCallback(() => {
     setExecuteOptionIndex(selectedOption);
@@ -290,8 +332,11 @@ const RunDetailPage: FC = () => {
         );
 
       case 'Failed':
-        return v.options.length > 0 ? renderTerminalSummary(v) : renderFailedCard(v);
-
+        return v.stopping
+          ? null
+          : v.options.length > 0
+            ? renderTerminalSummary(v)
+            : renderFailedCard(v);
       default:
         if (TERMINAL_PHASES.includes(v.phase)) {
           return renderTerminalSummary(v);
@@ -429,7 +474,7 @@ const RunDetailPage: FC = () => {
                 </Flex>
                 {view && (
                   <FlexItem>
-                    <RunPhaseLabel phase={view.phase} />
+                    <RunPhaseLabel phase={view.phase} stopping={view.stopping} />
                   </FlexItem>
                 )}
                 <FlexItem>
@@ -440,8 +485,13 @@ const RunDetailPage: FC = () => {
               </Flex>
             </Content>
 
-            {view?.failureReason && !(view.phase === 'Failed' && view.options.length === 0) && (
-              <Alert isInline title={view.failureReason} variant="danger" />
+            {view?.failureReason &&
+              !view.stopping &&
+              !(view.phase === 'Failed' && view.options.length === 0) && (
+                <Alert isInline title={view.failureReason} variant="danger" />
+              )}
+            {view?.sandboxShutdownPending && (
+              <Alert isInline title={t('Sandbox shutdown in progress')} variant="info" />
             )}
 
             {resultsError && (
@@ -593,56 +643,23 @@ const RunDetailPage: FC = () => {
                 <RunTimeline events={view.timeline} />
               )}
 
-              {resultsLoaded && view?.phase === 'Proposed' && (
-                <div className="ols-plugin__action-toolbar">
-                  <ActionList>
-                    <ActionListGroup>
-                      {!view.advisory && (
-                        <ActionListItem>
-                          <ApprovalGatedButton
-                            canApprove={canApprove}
-                            canApproveLoading={canApproveLoading}
-                            disabledTooltip={t('Select a remediation option to execute')}
-                            isDisabled={selectedOption < 0}
-                            mutationInProgress={mutationInProgress}
-                            onClick={openExecuteModal}
-                          >
-                            {t('Execute remediation')}
-                          </ApprovalGatedButton>
-                        </ActionListItem>
-                      )}
-                      {!view.advisory && (
-                        <ActionListItem>
-                          <ApprovalGatedButton
-                            canApprove={canApprove}
-                            canApproveLoading={canApproveLoading}
-                            mutationInProgress={mutationInProgress}
-                            onClick={() => setDenyingStage('Execution')}
-                            variant="secondary"
-                          >
-                            {t('Deny run')}
-                          </ApprovalGatedButton>
-                        </ActionListItem>
-                      )}
-                      <ActionListItem>
-                        <Button
-                          icon={<DownloadIcon />}
-                          isAriaDisabled={selectedOption < 0}
-                          onClick={handleDownloadSelected}
-                          variant="link"
-                        >
-                          {t('Download plan')}
-                        </Button>
-                      </ActionListItem>
-                    </ActionListGroup>
-                  </ActionList>
-                  <Content component={ContentVariants.small}>
-                    {t(
-                      'The autonomous features of OpenShift Lightspeed use AI technology to generate output.',
-                    )}{' '}
-                    {t('Always review AI-generated content prior to use.')}
-                  </Content>
-                </div>
+              {view && (
+                <RunActionToolbar
+                  canApprove={canApprove}
+                  canApproveLoading={canApproveLoading}
+                  canStop={canStop}
+                  canStopLoading={canStopLoading}
+                  isStoppable={canStopCurrentRun}
+                  mutationInProgress={mutationInProgress}
+                  needsApproval={needsApproval}
+                  onDeny={() => setDenyingStage('Execution')}
+                  onDownload={handleDownloadSelected}
+                  onExecute={openExecuteModal}
+                  onStop={openStopModal}
+                  resultsLoaded={resultsLoaded}
+                  selectedOption={selectedOption}
+                  view={view}
+                />
               )}
             </PageSection>
           </StatusGuard>
@@ -722,6 +739,19 @@ const RunDetailPage: FC = () => {
             clearMutationError();
           }}
           title={t('Confirm Deny')}
+        />
+        <StopRunModal
+          error={stopError}
+          isExecuting={view?.phase === 'Executing'}
+          isLoading={stopInProgress}
+          isOpen={isStopModalOpen}
+          onClose={() => {
+            setIsStopModalRequested(false);
+            setStopModalRunUid(undefined);
+            clearStopError();
+          }}
+          onConfirm={handleStop}
+          runName={run?.metadata?.name ?? name}
         />
       </AgenticLayout>
     </RunUidProvider>

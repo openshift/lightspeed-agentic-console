@@ -16,13 +16,18 @@ import {
   ApprovalStage,
   ApprovalStageType,
   ApproverInfo,
+  canStopRun,
   deriveFailureReason,
   derivePhaseFromConditions,
   EscalationResultGVK,
   EscalationResultK8s,
   ExecutionResultGVK,
   ExecutionResultK8s,
+  isCancellationFailed,
+  isCancelledByUser,
   isNoActionRequired,
+  isRunStopPending,
+  isRunStopping,
   LightspeedAgenticRunApprovalGVK,
   LightspeedAgenticRunApprovalModel,
   LightspeedAgenticRunGVK,
@@ -46,6 +51,7 @@ import {
   VerificationView,
 } from '../models/agenticrun-views';
 import { RESULT_LABEL_RUN, RUN_LABEL_SOURCE, RUN_NAMESPACE } from '../constants';
+import { useStopRunAccess, useStopRunMutation } from './useStopRun';
 
 // Assumes the operator names the sandbox pod identically to the SandboxClaim CR.
 // If the operator decouples these names, log streaming will need the actual pod name from the API.
@@ -381,14 +387,37 @@ export const mapToAgenticRunView = (
     return undefined;
   }
 
-  const phase = derivePhaseFromConditions(run.status?.conditions);
+  const conditions = run.status?.conditions;
+  const phase = derivePhaseFromConditions(conditions);
+  const stopping = isRunStopping(conditions);
+  const finalCancellation = phase === 'Failed' && isCancelledByUser(conditions);
+  const cancellationFailed = phase === 'Failed' && isCancellationFailed(conditions);
+  const recordedCancellationOutcome = finalCancellation || cancellationFailed;
+  const stopPending = !recordedCancellationOutcome && isRunStopPending(run);
+  const steps = run.status?.steps;
+  const hasSandboxReference = Boolean(
+    steps?.analysis?.sandbox ||
+    steps?.execution?.sandbox ||
+    steps?.verification?.sandbox ||
+    steps?.escalation?.sandbox,
+  );
+  const sandboxShutdownPending =
+    hasSandboxReference &&
+    (stopPending || finalCancellation || cancellationFailed || phase === 'EmergencyStopped');
   const options = analysis?.status?.options;
-  const failureReason =
+  const resultFailureReason =
     analysis?.status?.failureReason ??
     execution?.status?.failureReason ??
     verification?.status?.failureReason ??
     escalation?.status?.failureReason ??
-    (phase === 'Failed' ? deriveFailureReason(run.status?.conditions) : undefined);
+    (phase === 'Failed' ? deriveFailureReason(conditions) : undefined);
+  const failureReason = stopping
+    ? undefined
+    : finalCancellation
+      ? t('Stopped by user')
+      : cancellationFailed
+        ? t('Stop failed')
+        : resultFailureReason;
 
   const execStage = (approval?.spec?.stages ?? []).find((s) => s.type === 'Execution');
   const executedOptionIndex = execStage?.execution?.option;
@@ -414,6 +443,9 @@ export const mapToAgenticRunView = (
     advisory: !run.spec?.execution,
     noActionRequired: isNoActionRequired(run.status?.conditions),
     targetCluster: run.spec?.targetCluster,
+    stopping,
+    stopPending,
+    sandboxShutdownPending,
     failureReason,
     rootCause: mapRootCause(analysis),
     analysisCreatedAt: analysis?.metadata?.creationTimestamp,
@@ -440,7 +472,7 @@ export const mapToAgenticRunView = (
 };
 
 export interface UseAgenticRunReturn {
-  run: K8sResourceCommon | undefined;
+  run: AgenticRunK8s | undefined;
   view: AgenticRunView | undefined;
   runLoaded: boolean;
   runError: Error | undefined;
@@ -448,10 +480,16 @@ export interface UseAgenticRunReturn {
   resultsError: Error | undefined;
   canApprove: boolean;
   canApproveLoading: boolean;
+  canStop: boolean;
+  canStopLoading: boolean;
   needsApproval: Record<ApprovalStageType, boolean>;
   approveStage: (stageType: ApprovalStageType) => Promise<boolean>;
   approveExecution: (selectedOption: number) => Promise<boolean>;
   denyStage: (stageType: ApprovalStageType) => Promise<boolean>;
+  stopRun: () => Promise<boolean>;
+  stopInProgress: boolean;
+  stopError: string | undefined;
+  clearStopError: () => void;
   mutationInProgress: boolean;
   mutationError: string | undefined;
   clearMutationError: () => void;
@@ -587,6 +625,26 @@ export const useAgenticRun = (
     verb: 'patch',
     namespace: approval?.metadata?.namespace ?? namespace,
   });
+  const stopNamespace = run?.metadata?.namespace || namespace;
+  const [canStopAccess, canStopLoading] = useStopRunAccess(stopNamespace);
+  const canStop = canStopAccess && canStopRun(run);
+  const {
+    stopRun: mutateStopRun,
+    stopInProgress,
+    stopError,
+    clearStopError,
+  } = useStopRunMutation();
+  const stopRun = useCallback(async (): Promise<boolean> => {
+    if (!canStop) {
+      return false;
+    }
+    return mutateStopRun({
+      metadata: {
+        name: run?.metadata?.name ?? name,
+        namespace: run?.metadata?.namespace || namespace,
+      },
+    });
+  }, [canStop, mutateStopRun, name, namespace, run?.metadata?.name, run?.metadata?.namespace]);
 
   const [mutationInProgress, setMutationInProgress] = useState(false);
   const [mutationError, setMutationError] = useState<string>();
@@ -658,7 +716,7 @@ export const useAgenticRun = (
   );
 
   return {
-    run: run as K8sResourceCommon | undefined,
+    run: run as AgenticRunK8s | undefined,
     view,
     runLoaded,
     runError: runError as Error | undefined,
@@ -673,5 +731,11 @@ export const useAgenticRun = (
     mutationInProgress,
     mutationError,
     clearMutationError,
+    canStop,
+    canStopLoading,
+    stopRun,
+    stopInProgress,
+    stopError,
+    clearStopError,
   };
 };
