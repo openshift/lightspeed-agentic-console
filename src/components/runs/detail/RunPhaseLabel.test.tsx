@@ -35,4 +35,10 @@ describe('RunPhaseLabel', () => {
     expect(screen.getByText('Surprise')).toBeInTheDocument();
     expect(container.querySelector('svg')).not.toBeInTheDocument();
   });
+
+  test('displays Stopping instead of the derived phase label when stopping', () => {
+    renderWithProviders(<RunPhaseLabel phase="Executing" stopping />);
+    expect(screen.getByText('Stopping')).toBeInTheDocument();
+    expect(screen.queryByText('Executing')).not.toBeInTheDocument();
+  });
 });
