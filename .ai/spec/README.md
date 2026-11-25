@@ -29,6 +29,7 @@ AI agents. Content is optimized for precision and machine consumption.
 | Understand K8s data flow | `how/k8s-data-layer.md` |
 | Understand the plugin system | `how/console-plugin-system.md` |
 | Understand CI and e2e testing | `how/e2e-testing.md` |
+| Understand the Konflux/Codecov pipelines | `how/ci-pipelines.md` |
 
 ## Cross-Reference
 

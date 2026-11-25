@@ -2,6 +2,7 @@
 .devcontainer/dev.env
 .DS_Store
 CLAUDE.local.md
+coverage/
 dist/
 gui_test_screenshots/
 integration-tests/.auth/

@@ -10,6 +10,13 @@ export default defineConfig({
     maxWorkers: 8,
     setupFiles: ['./src/test-setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'cobertura'],
+      reportsDirectory: './coverage',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['src/**/*.test.{ts,tsx}', 'src/__mocks__/**', 'src/test-setup.ts'],
+    },
   },
   resolve: {
     extensions: ['.ts', '.tsx', '.js', '.jsx'],
