@@ -19,6 +19,7 @@
 | `src/components/runs/detail/ExecutionSummary.tsx` | `ExecutionSummary` | Post-execution actions and outcome display |
 | `src/components/runs/detail/VerificationSummary.tsx` | `VerificationSummary` | Verification checks and summary |
 | `src/components/runs/detail/EscalationSummary.tsx` | `EscalationSummary` | Freeform escalation summary/content card (returns null when empty) |
+| `src/components/runs/detail/IncompleteResultAlert.tsx` | `IncompleteResultAlert` | Warning alert shown on a stage whose result CR has `ResultMayBeIncomplete=True`; explains the step limit when that is the reason |
 | `src/components/runs/detail/RunPhaseLabel.tsx` | `RunPhaseLabel` | Phase label with status color |
 | `src/components/runs/detail/RunTimeline.tsx` | `RunTimeline` | Chronological event timeline |
 | `src/components/runs/detail/RequiredPermissions.tsx` | `RequiredPermissions` | RBAC permission summary and expandable detail table for remediation options |
@@ -37,7 +38,7 @@
 | `src/components/StatusGuard.tsx` | `StatusGuard` | Loading/error/empty gate using PatternFly `ErrorState`; replaces internal console `StatusBox` |
 | `src/models/agenticrun-views.ts` | `AgenticRunView`, `RemediationOptionView`, `ExecutionView`, `VerificationView`, `EscalationView`, `SandboxView`, `TimelineEvent`, `TERMINAL_PHASES` | View-model types for the detail page (output of `useAgenticRun` mapping layer) |
 | `src/constants.ts` | `RUN_NAMESPACE`, `RUN_LABEL_SOURCE`, `RESULT_LABEL_RUN` | Shared constants for K8s label keys and namespace |
-| `src/test-helpers.ts` | `cond`, `makeApproval`, `makeApprovalNoSpec`, `stubObjectUrl`, `stubAnchorDownload` | Shared unit test helpers: condition and approval CR factories, plus self-restoring stubs for `URL.createObjectURL`/`revokeObjectURL` and download anchor clicks (which also fakes `setTimeout`, so delayed revokes can't leak into later tests). Reuse these instead of re-stubbing in individual tests. |
+| `src/test-helpers.ts` | `cond`, `resultCond`, `makeApproval`, `makeApprovalNoSpec`, `makeResult`, `stubObjectUrl`, `stubAnchorDownload` | Shared unit test helpers: AgenticRun and result CR condition factories, approval and result CR factories, plus self-restoring stubs for `URL.createObjectURL`/`revokeObjectURL` and download anchor clicks (which also fakes `setTimeout`, so delayed revokes can't leak into later tests). Reuse these instead of re-stubbing in individual tests. |
 | `src/hooks/useAgenticRun.ts` | `useAgenticRun`, `mapRootCause`, `mapOption`, `mapExecution`, `mapVerification`, `mapEscalation`, `mapTimeline`, `filterLatest` | Fetches run + result CRs (including EscalationResult), maps API types → view types |
 | `src/hooks/useExecutionLogActions.ts` | `useExecutionLogActions` | Parses execution actions from sandbox pod logs |
 | `src/hooks/useRetainedLogs.ts` | `useRetainedLogs`, `probeConfigMap`, `buildServiceProxyBase` | Fetches retained logs from OTEL Admin API via K8s service proxy; probes ConfigMap for availability |

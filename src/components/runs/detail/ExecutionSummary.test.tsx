@@ -80,4 +80,14 @@ describe('ExecutionSummary', () => {
     render({ executionSandbox: { namespace: 'ns', podName: 'pod' } });
     expect(screen.getByText('View Execution logs')).toBeInTheDocument();
   });
+
+  test('warns when the execution result may be incomplete', () => {
+    render({ mayBeIncomplete: { reason: 'StepLimitReached' } });
+    expect(screen.getByText('Execution result may be incomplete')).toBeInTheDocument();
+  });
+
+  test('does not warn when the execution result is complete', () => {
+    render();
+    expect(screen.queryByText('Execution result may be incomplete')).not.toBeInTheDocument();
+  });
 });

@@ -2,8 +2,13 @@ import { onTestFinished, vi } from 'vitest';
 
 import {
   AgenticRunCondition,
+  AnalysisResultK8s,
   ApprovalStage,
+  EscalationResultK8s,
+  ExecutionResultK8s,
   LightspeedAgenticRunApproval,
+  ResultCondition,
+  VerificationResultK8s,
 } from './models/agenticrun';
 
 export const cond = (
@@ -12,6 +17,39 @@ export const cond = (
   reason?: string,
   message?: string,
 ): AgenticRunCondition => ({ type, status, reason, message });
+
+// Result CR conditions require lastTransitionTime, unlike AgenticRun conditions
+export const resultCond = (
+  type: string,
+  status: 'True' | 'False' | 'Unknown',
+  reason?: string,
+  message?: string,
+): ResultCondition => ({
+  lastTransitionTime: '2026-01-01T00:00:00Z',
+  message,
+  reason,
+  status,
+  type,
+});
+
+type ResultKinds = {
+  AnalysisResult: AnalysisResultK8s;
+  EscalationResult: EscalationResultK8s;
+  ExecutionResult: ExecutionResultK8s;
+  VerificationResult: VerificationResultK8s;
+};
+
+export const makeResult = <K extends keyof ResultKinds>(
+  kind: K,
+  status: ResultKinds[K]['status'] = {},
+): ResultKinds[K] =>
+  ({
+    apiVersion: 'agentic.openshift.io/v1alpha1',
+    kind,
+    metadata: { name: 'result-1', namespace: 'default' },
+    spec: { agenticRunName: 'run-1' },
+    status,
+  }) as ResultKinds[K];
 
 export const makeApproval = (stages: ApprovalStage[] = []): LightspeedAgenticRunApproval => ({
   apiVersion: 'agentic.openshift.io/v1alpha1',

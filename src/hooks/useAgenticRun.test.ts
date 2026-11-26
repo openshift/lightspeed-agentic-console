@@ -19,7 +19,9 @@ import {
   mapRootCause,
   mapTimeline,
   mapToAgenticRunView,
+  mapVerification,
 } from './useAgenticRun';
+import { makeResult, resultCond } from '../test-helpers';
 
 const makeCondition = (
   type: string,
@@ -808,5 +810,85 @@ describe('mapToAgenticRunView failureReason precedence', () => {
 
     expect(view?.phase).toBe('Denied');
     expect(view?.failureReason).toBeUndefined();
+  });
+});
+
+describe('step limit recovery advisory', () => {
+  const t = ((key: string) => key) as unknown as Parameters<typeof mapToAgenticRunView>[6];
+  const completed = resultCond('Completed', 'True', 'Succeeded');
+  const status = {
+    conditions: [completed, resultCond('ResultMayBeIncomplete', 'True', 'StepLimitReached')],
+  };
+
+  const analysis = makeResult('AnalysisResult', status);
+  const execution = makeResult('ExecutionResult', status);
+  const verification = makeResult('VerificationResult', status);
+  const escalation = makeResult('EscalationResult', status);
+
+  const run = {
+    apiVersion: 'agentic.openshift.io/v1alpha1',
+    kind: 'AgenticRun',
+    metadata: { name: 'run-1', namespace: 'default', creationTimestamp: '2026-01-01T00:00:00Z' },
+    spec: { request: 'Fix alert' },
+    status: { conditions: [makeCondition('Escalated', 'True')] },
+  } as AgenticRunK8s;
+
+  test('flags each stage whose result may be incomplete', () => {
+    const advisory = { reason: 'StepLimitReached' };
+    expect(mapExecution(undefined, execution)?.mayBeIncomplete).toEqual(advisory);
+    expect(mapVerification(verification)?.mayBeIncomplete).toEqual(advisory);
+    expect(mapEscalation(escalation)?.mayBeIncomplete).toEqual(advisory);
+    expect(
+      mapToAgenticRunView(run, analysis, undefined, undefined, undefined, undefined, t)
+        ?.analysisMayBeIncomplete,
+    ).toEqual(advisory);
+  });
+
+  test('does not flag results without the advisory condition', () => {
+    const complete = makeResult('ExecutionResult', { conditions: [completed] });
+    expect(mapExecution(undefined, complete)?.mayBeIncomplete).toBeUndefined();
+  });
+
+  test('keeps the advisory condition out of the timeline', () => {
+    const events = mapTimeline(
+      run,
+      'Escalated',
+      t,
+      analysis,
+      execution,
+      verification,
+      undefined,
+      escalation,
+    );
+    expect(events.map((e) => e.label)).toEqual([
+      'Run created',
+      'Analysis completed',
+      'Execution completed',
+      'Verification completed',
+      'Escalation completed',
+    ]);
+  });
+});
+
+describe('mapTimeline condition types', () => {
+  const t = ((key: string) => key) as unknown as Parameters<typeof mapTimeline>[2];
+
+  test('only adds Started and Completed result conditions', () => {
+    const run = {
+      apiVersion: 'agentic.openshift.io/v1alpha1',
+      kind: 'AgenticRun',
+      metadata: { name: 'run-1', namespace: 'default' },
+      spec: { request: 'Fix alert' },
+    } as AgenticRunK8s;
+    const analysis = makeResult('AnalysisResult', {
+      conditions: [
+        resultCond('Started', 'True', 'StepStarted'),
+        resultCond('SomeFutureCondition', 'True', 'SomeReason'),
+        resultCond('Completed', 'True', 'Succeeded'),
+      ],
+    });
+
+    const events = mapTimeline(run, 'Proposed', t, analysis);
+    expect(events.map((e) => e.label)).toEqual(['Analysis started', 'Analysis completed']);
   });
 });

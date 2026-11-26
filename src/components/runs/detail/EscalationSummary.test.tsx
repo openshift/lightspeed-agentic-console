@@ -34,4 +34,14 @@ describe('EscalationSummary', () => {
     render({ escalationSandbox: { namespace: 'ns', podName: 'pod' }, summary: 'Needs a human' });
     expect(screen.getByText('View Escalation logs')).toBeInTheDocument();
   });
+
+  test('warns when the escalation result may be incomplete', () => {
+    render({ mayBeIncomplete: { reason: 'StepLimitReached' }, summary: 'Needs a human' });
+    expect(screen.getByText('Escalation result may be incomplete')).toBeInTheDocument();
+  });
+
+  test('does not warn when the escalation result is complete', () => {
+    render({ summary: 'Needs a human' });
+    expect(screen.queryByText('Escalation result may be incomplete')).not.toBeInTheDocument();
+  });
 });

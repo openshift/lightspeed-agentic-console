@@ -1,4 +1,4 @@
-import { AgentAction, AgenticRunPhase, AgentRbac } from './agenticrun';
+import { AgentAction, AgenticRunPhase, AgentRbac, IncompleteResult } from './agenticrun';
 
 export type { AgenticRunPhase } from './agenticrun';
 
@@ -70,6 +70,7 @@ export interface VerificationView {
   summary?: string;
   checks: VerificationCheckView[];
   failureReason?: string;
+  mayBeIncomplete?: IncompleteResult;
   verificationSandbox?: SandboxView;
   verificationStartedAt?: string;
 }
@@ -88,6 +89,7 @@ export interface ExecutionView {
   executionRecord?: ExecutionRecordView;
   executionSandbox?: SandboxView;
   executionStartedAt?: string;
+  mayBeIncomplete?: IncompleteResult;
 }
 
 export interface EscalationView {
@@ -96,6 +98,7 @@ export interface EscalationView {
   failureReason?: string;
   escalationSandbox?: SandboxView;
   escalationStartedAt?: string;
+  mayBeIncomplete?: IncompleteResult;
 }
 
 export interface AgenticRunView {
@@ -108,6 +111,7 @@ export interface AgenticRunView {
   failureReason?: string;
   rootCause?: RootCauseView;
   analysisCreatedAt?: string;
+  analysisMayBeIncomplete?: IncompleteResult;
   analysisStartedAt?: string;
   analysisSandbox?: SandboxView;
   executionStartedAt?: string;

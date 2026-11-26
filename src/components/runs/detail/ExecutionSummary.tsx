@@ -28,6 +28,7 @@ import { ExecutionView } from '../../../models/agenticrun-views';
 import { getOutcomeStatus } from '../../../utils/agenticrun-utils';
 import { CodeBlockWithClipboard } from '../../CodeBlockWithClipboard';
 import { MarkdownContent } from '../../MarkdownContent';
+import { IncompleteResultAlert } from './IncompleteResultAlert';
 import { SandboxLogViewer } from './SandboxLogViewer';
 
 interface ExecutionSummaryProps {
@@ -72,6 +73,15 @@ export const ExecutionSummary: FC<ExecutionSummaryProps> = ({ execution }) => {
       </CardHeader>
       <CardBody>
         <Flex direction={{ default: 'column' }} gap={{ default: 'gapLg' }}>
+          {execution.mayBeIncomplete && (
+            <FlexItem>
+              <IncompleteResultAlert
+                reason={execution.mayBeIncomplete.reason}
+                title={t('Execution result may be incomplete')}
+              />
+            </FlexItem>
+          )}
+
           {execution.executionRecord && (
             <FlexItem>
               <DescriptionList isHorizontal>
