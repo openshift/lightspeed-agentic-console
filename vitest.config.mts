@@ -9,13 +9,18 @@ export default defineConfig({
     // Testing on 2026-10-19, limiting to 8 workers didn't slow down the test execution
     maxWorkers: 8,
     setupFiles: ['./src/test-setup.ts'],
-    include: ['src/**/*.test.{ts,tsx}'],
+    include: ['src/**/*.test.{ts,tsx}', 'integration-tests/support/**/*.test.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'cobertura'],
       reportsDirectory: './coverage',
       include: ['src/**/*.{ts,tsx}'],
-      exclude: ['src/**/*.test.{ts,tsx}', 'src/__mocks__/**', 'src/test-setup.ts'],
+      exclude: [
+        'src/**/*.test.{ts,tsx}',
+        'src/__mocks__/**',
+        'src/test-setup.ts',
+        'integration-tests/**',
+      ],
     },
   },
   resolve: {

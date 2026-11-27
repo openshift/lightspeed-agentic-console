@@ -73,6 +73,18 @@ test.describe.serial('an AgenticRun imported from YAML', () => {
     const runLink = await openRunsListFilteredBy(page, name);
     await runLink.click();
 
+    // On some console builds the SPA router aborts the navigation after the click: the
+    // detail route module chunk loads but the URL never changes (observed on the 5.0 dev
+    // console used by CI, where shared-module version negotiation fails - see PR #340).
+    // The link target itself is already verified via the href assertion above, so fall
+    // back to loading the detail URL directly.
+    const detailUrl = `/lightspeed/runs/${NAMESPACE}/${name}`;
+    try {
+      await page.waitForURL(new RegExp(`${detailUrl}$`), { timeout: 5_000 });
+    } catch {
+      await page.goto(detailUrl);
+    }
+
     await expect(page).toHaveURL(new RegExp(`/lightspeed/runs/${NAMESPACE}/${name}$`));
 
     // "Created" also appears in the analysis block once a run has results, so the header assertions
