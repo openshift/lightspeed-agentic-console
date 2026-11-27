@@ -16,6 +16,7 @@ import type { FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { VerificationView } from '../../../models/agenticrun-views';
 import { MarkdownContent } from '../../MarkdownContent';
+import { IncompleteResultAlert } from './IncompleteResultAlert';
 import { SandboxLogViewer } from './SandboxLogViewer';
 
 interface VerificationSummaryProps {
@@ -65,6 +66,15 @@ export const VerificationSummary: FC<VerificationSummaryProps> = ({ verification
       </CardHeader>
       <CardBody>
         <Flex direction={{ default: 'column' }} gap={{ default: 'gapLg' }}>
+          {verification.mayBeIncomplete && (
+            <FlexItem>
+              <IncompleteResultAlert
+                reason={verification.mayBeIncomplete.reason}
+                title={t('Verification result may be incomplete')}
+              />
+            </FlexItem>
+          )}
+
           {verification.summary && (
             <FlexItem>
               <MarkdownContent text={verification.summary} />

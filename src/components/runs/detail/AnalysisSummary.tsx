@@ -13,6 +13,7 @@ import {
 } from '@patternfly/react-core';
 import type { FC } from 'react';
 import { useTranslation } from 'react-i18next';
+import { IncompleteResult } from '../../../models/agenticrun';
 import {
   AgenticRunPhase,
   RootCauseView,
@@ -20,6 +21,7 @@ import {
   TERMINAL_PHASES,
 } from '../../../models/agenticrun-views';
 import { MarkdownContent } from '../../MarkdownContent';
+import { IncompleteResultAlert } from './IncompleteResultAlert';
 import { SandboxLogViewer } from './SandboxLogViewer';
 import { StageApprovalBanner } from './StageApprovalBanner';
 
@@ -30,6 +32,7 @@ interface AnalysisSummaryProps {
   phase: AgenticRunPhase;
   analysisSandbox?: SandboxView;
   analysisStartedAt?: string;
+  mayBeIncomplete?: IncompleteResult;
   needsApproval?: boolean;
   canApprove?: boolean;
   canApproveLoading?: boolean;
@@ -66,6 +69,7 @@ export const AnalysisSummary: FC<AnalysisSummaryProps> = ({
   analysisSandbox,
   analysisStartedAt,
   hasRemediationOptions,
+  mayBeIncomplete,
   rootCause,
   needsApproval,
   canApprove,
@@ -166,6 +170,13 @@ export const AnalysisSummary: FC<AnalysisSummaryProps> = ({
             </Flex>
           </CardBody>
         </Card>
+
+        {mayBeIncomplete && (
+          <IncompleteResultAlert
+            reason={mayBeIncomplete.reason}
+            title={t('Analysis result may be incomplete')}
+          />
+        )}
 
         {!hasRemediationOptions && rootCause && (
           <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsLg' }}>

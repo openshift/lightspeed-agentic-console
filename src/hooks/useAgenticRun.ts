@@ -22,6 +22,7 @@ import {
   EscalationResultK8s,
   ExecutionResultGVK,
   ExecutionResultK8s,
+  getResultMayBeIncomplete,
   isNoActionRequired,
   LightspeedAgenticRunApprovalGVK,
   LightspeedAgenticRunApprovalModel,
@@ -124,6 +125,7 @@ export const mapExecution = (
     executionSandbox: mapSandbox(executionSandbox),
     executionStartedAt: (execution.status?.conditions ?? []).find((c) => c.type === 'Started')
       ?.lastTransitionTime,
+    mayBeIncomplete: getResultMayBeIncomplete(execution.status?.conditions),
   };
 };
 
@@ -144,6 +146,7 @@ export const mapVerification = (
       value: c.value,
     })),
     failureReason: verificationResult.status?.failureReason,
+    mayBeIncomplete: getResultMayBeIncomplete(verificationResult.status?.conditions),
     verificationSandbox: mapSandbox(verificationSandbox),
     verificationStartedAt: (verificationResult.status?.conditions ?? []).find(
       (c) => c.type === 'Started',
@@ -167,8 +170,11 @@ export const mapEscalation = (
     escalationStartedAt: (escalationResult.status?.conditions ?? []).find(
       (c) => c.type === 'Started',
     )?.lastTransitionTime,
+    mayBeIncomplete: getResultMayBeIncomplete(escalationResult.status?.conditions),
   };
 };
+
+const TIMELINE_CONDITION_TYPES = ['Started', 'Completed'];
 
 const condVariant = (reason?: string): TimelineEvent['variant'] => {
   if (reason === 'Succeeded' || reason === 'Complete') {
@@ -232,6 +238,10 @@ export const mapTimeline = (
 
   for (const { conditions, label, currentPhase, failureReason } of conditionSources) {
     for (const cond of conditions ?? []) {
+      // Skip other types, such as advisory conditions, rather than show their raw type names
+      if (!TIMELINE_CONDITION_TYPES.includes(cond.type)) {
+        continue;
+      }
       if (cond.type === 'Completed' && cond.status !== 'True') {
         continue;
       }
@@ -249,7 +259,7 @@ export const mapTimeline = (
         continue;
       }
       events.push({
-        label: `${label} ${cond.type === 'Started' ? t('started') : cond.type === 'Completed' ? t('completed') : cond.type.toLowerCase()}`,
+        label: `${label} ${cond.type === 'Started' ? t('started') : t('completed')}`,
         description: cond.message || failureReason || undefined,
         timestamp: cond.lastTransitionTime,
         variant: condVariant(cond.reason),
@@ -417,6 +427,7 @@ export const mapToAgenticRunView = (
     failureReason,
     rootCause: mapRootCause(analysis),
     analysisCreatedAt: analysis?.metadata?.creationTimestamp,
+    analysisMayBeIncomplete: getResultMayBeIncomplete(analysis?.status?.conditions),
     analysisStartedAt: (analysis?.status?.conditions ?? []).find((c) => c.type === 'Started')
       ?.lastTransitionTime,
     analysisSandbox: mapSandbox(run.status?.steps?.analysis?.sandbox),

@@ -110,6 +110,12 @@ The core domain of the plugin: displaying and managing runs through a multi-stag
 34. `EscalationSummary` MUST NOT render when the mapped view has no `summary`, `content`, or escalation sandbox. Failure-only results (system/agent error with only `status.failureReason`) surface via the page-level danger alert that aggregates stage `failureReason` values, not as an empty card. The page-level alert is suppressed for a `Failed` run with no remediation options — that failure is shown in the remediation hub failure card instead (see 21a).
 35. Timeline events include Escalation started/completed conditions from the `EscalationResult` (same condition-to-event mapping as Analysis/Execution/Verification).
 
+### Incomplete Results
+
+36. When a stage's result CR has `ResultMayBeIncomplete=True` in `status.conditions`, the console shows an inline warning alert with that stage's output: for analysis, below the analysis request and above the root cause analysis and remediation plans; for execution, verification, and escalation, at the top of the stage's summary card. No alert is shown when the summary card itself is not rendered (rule 34). The run's phase and outcome are unchanged. [OLS-5014]
+37. When the condition's reason is `StepLimitReached`, the alert explains that the agent reached its step limit before finishing. For any other or missing reason, it shows a generic explanation. The condition's `message` is not displayed, since it is not translated.
+38. Only `Started` and `Completed` result CR conditions produce timeline events, so `ResultMayBeIncomplete` and any other condition types do not.
+
 ## Constraints
 
 - The `derivePhaseFromConditions` function is a behavioral contract with the operator. Changes require synchronization.

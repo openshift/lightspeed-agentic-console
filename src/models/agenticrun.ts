@@ -604,6 +604,24 @@ export const isNoActionRequired = (conditions?: AgenticRunCondition[]): boolean 
   return analyzed?.status === 'True' && analyzed.reason === 'NoActionRequired';
 };
 
+export const RESULT_MAY_BE_INCOMPLETE = 'ResultMayBeIncomplete';
+export const STEP_LIMIT_REACHED = 'StepLimitReached';
+
+export type IncompleteResult = {
+  reason?: string;
+};
+
+// Set by the sandbox when it publishes a result the agent may not have finished, e.g. after
+// reaching its step limit
+export const getResultMayBeIncomplete = (
+  conditions?: ResultCondition[],
+): IncompleteResult | undefined => {
+  const condition = conditions?.find(
+    (c) => c.type === RESULT_MAY_BE_INCOMPLETE && c.status === 'True',
+  );
+  return condition ? { reason: condition.reason } : undefined;
+};
+
 // Returns a human-readable reason for a Failed run, taken from the failing
 // condition in the same precedence order derivePhaseFromConditions uses.
 export const deriveFailureReason = (conditions?: AgenticRunCondition[]): string | undefined => {

@@ -4,6 +4,7 @@ import type { FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { EscalationView } from '../../../models/agenticrun-views';
 import { MarkdownContent } from '../../MarkdownContent';
+import { IncompleteResultAlert } from './IncompleteResultAlert';
 import { SandboxLogViewer } from './SandboxLogViewer';
 
 interface EscalationSummaryProps {
@@ -43,6 +44,15 @@ export const EscalationSummary: FC<EscalationSummaryProps> = ({ escalation }) =>
       </CardHeader>
       <CardBody>
         <Flex direction={{ default: 'column' }} gap={{ default: 'gapLg' }}>
+          {escalation.mayBeIncomplete && (
+            <FlexItem>
+              <IncompleteResultAlert
+                reason={escalation.mayBeIncomplete.reason}
+                title={t('Escalation result may be incomplete')}
+              />
+            </FlexItem>
+          )}
+
           {escalation.summary && (
             <FlexItem>
               <MarkdownContent text={escalation.summary} />

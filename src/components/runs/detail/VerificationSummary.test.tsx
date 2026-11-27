@@ -62,4 +62,14 @@ describe('VerificationSummary', () => {
     render({ verificationSandbox: { namespace: 'ns', podName: 'pod' } });
     expect(screen.getByText('View Verification logs')).toBeInTheDocument();
   });
+
+  test('warns when the verification result may be incomplete', () => {
+    render({ mayBeIncomplete: { reason: 'StepLimitReached' }, summary: 'Everything checks out' });
+    expect(screen.getByText('Verification result may be incomplete')).toBeInTheDocument();
+  });
+
+  test('does not warn when the verification result is complete', () => {
+    render({ summary: 'Everything checks out' });
+    expect(screen.queryByText('Verification result may be incomplete')).not.toBeInTheDocument();
+  });
 });

@@ -64,4 +64,23 @@ describe('AnalysisSummary', () => {
     const { container } = render({ phase: 'Executing' });
     expect(container).toBeEmptyDOMElement();
   });
+
+  test('warns about an incomplete analysis above the root cause', () => {
+    render({
+      analysisRequest: 'Investigate the pod',
+      mayBeIncomplete: { reason: 'StepLimitReached' },
+      rootCause,
+    });
+    expect(
+      screen
+        .getByText('Analysis result may be incomplete')
+        .compareDocumentPosition(screen.getByText('Root cause analysis')) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  test('does not warn when the analysis result is complete', () => {
+    render({ analysisRequest: 'Investigate the pod', rootCause });
+    expect(screen.queryByText('Analysis result may be incomplete')).not.toBeInTheDocument();
+  });
 });

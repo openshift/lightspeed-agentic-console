@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { deriveFailureReason, derivePhaseFromConditions, isNoActionRequired } from './agenticrun';
-import { cond } from '../test-helpers';
+import {
+  deriveFailureReason,
+  derivePhaseFromConditions,
+  getResultMayBeIncomplete,
+  isNoActionRequired,
+} from './agenticrun';
+import { cond, resultCond } from '../test-helpers';
 
 describe('derivePhaseFromConditions', () => {
   it('returns Pending for undefined conditions', () => {
@@ -182,5 +187,28 @@ describe('isNoActionRequired', () => {
 
   it('returns false when Analyzed condition is absent', () => {
     expect(isNoActionRequired(undefined)).toBe(false);
+  });
+});
+
+describe('getResultMayBeIncomplete', () => {
+  const incomplete = (status: 'True' | 'False', reason?: string) =>
+    resultCond('ResultMayBeIncomplete', status, reason);
+
+  it('returns the reason for ResultMayBeIncomplete=True', () => {
+    expect(getResultMayBeIncomplete([incomplete('True', 'StepLimitReached')])).toEqual({
+      reason: 'StepLimitReached',
+    });
+  });
+
+  it('returns an advisory without a reason when the condition has none', () => {
+    expect(getResultMayBeIncomplete([incomplete('True')])).toEqual({ reason: undefined });
+  });
+
+  it('returns undefined for ResultMayBeIncomplete=False', () => {
+    expect(getResultMayBeIncomplete([incomplete('False', 'StepLimitReached')])).toBeUndefined();
+  });
+
+  it('returns undefined when the condition is absent', () => {
+    expect(getResultMayBeIncomplete(undefined)).toBeUndefined();
   });
 });

@@ -139,6 +139,32 @@ describe('RunDetailPage remediation plans failure rendering', () => {
   });
 });
 
+describe('RunDetailPage incomplete analysis warning', () => {
+  test('renders above the remediation plans', () => {
+    mockHook(
+      makeView({
+        analysisMayBeIncomplete: { reason: 'StepLimitReached' },
+        options: [makeOption()],
+        phase: 'Proposed',
+      }),
+    );
+    renderWithProviders(<RunDetailPage />);
+
+    const alert = screen.getByText('Analysis result may be incomplete');
+    expect(
+      alert.compareDocumentPosition(screen.getByText('Remediation plans')) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  test('is not rendered when the analysis result is complete', () => {
+    mockHook(makeView({ options: [makeOption()], phase: 'Proposed' }));
+    renderWithProviders(<RunDetailPage />);
+
+    expect(screen.queryByText('Analysis result may be incomplete')).not.toBeInTheDocument();
+  });
+});
+
 describe('RunDetailPage proposed-state action toolbar', () => {
   const proposedView = () =>
     makeView({

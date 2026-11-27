@@ -513,6 +513,7 @@ const RunDetailPage: FC = () => {
                   canApprove={canApprove}
                   canApproveLoading={canApproveLoading}
                   hasRemediationOptions={view.options.length > 0}
+                  mayBeIncomplete={view.analysisMayBeIncomplete}
                   mutationError={mutationError}
                   mutationInProgress={mutationInProgress}
                   needsApproval={needsApproval.Analysis}
